@@ -1844,6 +1844,7 @@ class ItemSearchApp(QWidget):
             reduction_percent: MDEF 破防百分比（例如 64 表示 64%）
             回傳: 傷害倍率（小數，例如 0.4222）
             """
+            
             reduction = reduction_percent / 100
             if reduction > 0.99:
                 return 1.0
@@ -1867,7 +1868,7 @@ class ItemSearchApp(QWidget):
         #魔法破防
         #mdef m33=破防 l37=敵人mdef
         #=IF(M33>0.99,1,(1000+(L37-(L37*M33)-M33))/(1000+(L37-(L37*M33)-M33)*10))
-        mdef_reduction = ((get_effect_multiplier('MD_Race_def', target_race))+(get_effect_multiplier('MD_class_def', target_race)))
+        mdef_reduction = ((get_effect_multiplier('MD_Race_def', target_race))+(get_effect_multiplier('MD_class_def', target_class)))
         Mdamage_nomdef = calc_final_mdef_damage(target_mdef, mdef_reduction)
         #print(f"最終傷害比例：{Mdamage_nomdef:.4f} → {Mdamage_nomdef * 100:.2f}%")
 
