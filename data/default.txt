@@ -1,0 +1,139 @@
+{
+  "Name": "1",
+  "Equip": [
+    {
+      "id": "weaponr",
+      "label": "主手",
+      "equipname": "",
+      "effectlist": [
+	  ]
+    }
+  ],
+  "Weapon": {
+    "type": {
+      "id": "Empty",
+      "sizefix": {
+        "small": 100,
+        "middle": 100,
+        "large": 100
+      }
+    },
+    "level": {
+      "id": 1
+    },
+    "grade": {
+      "id": 0
+    },
+    "ATK": 0,
+    "MATK": 0,
+    "refinelevel": 0,
+    "ArrowATK": 0,
+    "Weight": 0
+  },
+  "Status": {
+    "Level": 1,
+    "JOBLevel": 1,
+    "Transcendent": true,
+    "classid": "",
+    "UseJobMaxPoint": true,
+    "JobMaxPointType": "4th",
+    "STR": 0,
+    "AGI": 0,
+    "VIT": 0,
+    "INT": 0,
+    "DEX": 0,
+    "LUK": 0,
+    "POW": 0,
+    "STA": 0,
+    "WIS": 0,
+    "SPL": 0,
+    "CON": 0,
+    "CRT": 0,
+    "ASPD": 0,
+    "HP": 0,
+    "SP": 0,
+    "MHP": 0,
+    "MSP": 0
+  },
+  "SkillName": "",
+  "Skill": {
+    "id": "",
+    "name": "",
+    "level": 0,
+    "formula": 0,
+    "ranged": false,
+    "critical": false,
+    "cannon": false,
+    "cart": false,
+    "transWeaponDEF": false,
+    "ignoreRES": false,
+    "laterformula": false,
+    "hitnumber": 1,
+    "elemental": 0,
+    "FCT": 0,
+    "VCT": 0,
+    "CD": 0,
+    "GCD": 0,
+    "SpecialATK1": 0,
+    "SpecialATK2": 0,
+    "SpecialATK3": 0,
+    "SpecialATK4": 0,
+    "SpecialATK5": 0,
+    "SpecialATK6": 0,
+    "SpecialATK7": 0,
+    "SpecialATK8": 0,
+    "SpecialMATK1": 0,
+    "SpecialMATK2": 0,
+    "SpecialMATK3": 0,
+    "DamageTypeIdx": 0,
+    "Note": ""
+  },
+  "SkillOption": {
+    "AttackElementalIdx": 0,
+    "ElementalPercent": 0,
+    "WeaponMasteryATKInput": 0,
+    "WeaponMasteryATK": 0,
+    "CarWeight": 8000
+  },
+  "Option": {
+    "MagnumPoison2Value": 0,
+    "SkillPercent": 0,
+    "SkillFormulaError": "",
+    "EquipSkillAddDamage": 0,
+    "BaseCriticalValue": 40,
+    "IgnoreDEF": false,
+    "IgnoreMDEF": false,
+    "MemoryofThanatosCard": false
+  },
+  "EnemyName": "自訂",
+  "Enemy": {
+    "id": 0,
+    "name": "自訂",
+    "level": 1,
+    "hp": 0,
+    "LUK": 0,
+    "VIT": 0,
+    "elemental": 0,
+    "elementallevel": 1,
+    "size": 0,
+    "StatusDEF": 0,
+    "WeaponDEF": 0,
+    "StatusMDEF": 0,
+    "WeaponMDEF": 0,
+    "RES": 0,
+    "MRES": 0,
+    "sizeResist": 0,
+    "levelResist": 0,
+    "elementalResist": 0,
+    "moneletResist": 0,
+    "rangedResist": 0,
+    "raceResist": 0,
+    "criResist": 0,
+    "doram": false
+  },
+  "Consumable": [],
+  "SupportSkill": [],
+  "Damage": "0 ~ 0",
+  "DamageDPS": 0,
+  "NormalAttackDPS": 0
+}

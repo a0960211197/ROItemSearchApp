@@ -95,7 +95,7 @@ def compile_ui_files(ui_dir="UI"):
 # === 主程式執行前，先自動轉換 UI ===
 compile_ui_files()
 
-
+import importlib.util
 import sys
 import re
 import subprocess
@@ -127,25 +127,13 @@ def register_function(name, desc, args):
         "args": args
     }
 
-# 額外參數對照表 "盾壁": {"desc": "說明","code": ["使用原始公式例如 SubDamage_Property(0, 0, 10) 受無屬性對象的物理傷害-10%","SubMDamage_Property(0, 0, 10)"]},
-all_skill_entries = {#範例[    "": {"type": "技能/料理","code":["",""]},
-    "慈悲術": {"type": "技能","code": ["temp = 70 / 10","AddExtParam(0,103,10 + math.floor(temp / 2))","AddExtParam(0,106,10 + math.floor(temp / 2)","AddExtParam(0,107,10 + math.floor(temp / 2)","AddExtParam(0,49,20)"]},
-    "純白百合花": {"type": "技能","code":["temp = 70 / 10","AddExtParam(0,104,12 + math.floor(temp / 2))","AddExtParam(0,167,10 + math.floor(temp / 2))"]},
-    "智慧棒棒條": {"type": "料理","code":["AddExtParam(0,106,15)"]},
-    "靈巧棒棒條": {"type": "料理","code":["AddExtParam(0,107,15)"]},
-    "狼血雞尾酒": {"type": "料理","code":["AddExtParam(0,106,20)"]},
-    "小雪獸冰茶": {"type": "料理","code":["AddExtParam(0,107,20)"]},
-    "魔力增幅(公式用)": {"type": "技能","code":["EnableSkill(366, 10)"]},
-    "神聖權能": {"type": "技能","code":["AddExtParam(1, 242, 50)","AddExtParam(1, 243, 50)"]},
-    "蒙布朗蛋糕": {"type": "料理","code":["AddMDamage_Size(1, 0, 15)","AddMDamage_Size(1, 1, 15)","AddMDamage_Size(1, 2, 15)"]},
-    "櫻花年糕": {"type": "料理","code":["AddMDamage_Property(1, 10, 10)"]},
-    "豐滿花樹枝": {"type": "料理","code":["AddSkillMDamage(10, 10)"]},
-    "高級戰鬥藥": {"type": "料理","code":["AddExtParam(1, 140, 10)"]},
-    "魔力藥水": {"type": "料理","code":["AddExtParam(1, 200, 50)"]},
-    "藍色藥草活化液": {"type": "料理","code":["AddSkillMDamage(10, 10)"]},
-    "戰神蒂爾之祝福": {"type": "料理","code":["AddExtParam(1, 200, 20)"]},
-}
 
+#外部技能物品BUFF
+file_path = os.path.join("data", "all_skill_entries.py")
+spec = importlib.util.spec_from_file_location("all_skill_entries", file_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+all_skill_entries = module.all_skill_entries
 
 
 
@@ -257,6 +245,31 @@ weapon_type_map = {
     20: "霰彈槍", 21: "榴彈槍", 22: "風魔飛鏢"
 }
 
+weapon_class_codes = {#輸出用
+    0: "Empty",# 空手
+    1: "Daggers",  # 短劍
+    2: "OneHandedSwords",  # 單手劍
+    3: "TwoHandedSword",  # 雙手劍
+    4: "Spears",  # 單手矛
+    5: "Spears",  # 雙手矛
+    6: "Axes",  # 單手斧
+    7: "Axes",  # 雙手斧
+    8: "Maces",  # 鈍器
+    10: "Rods",  # 單手仗
+    11: "Bows",  # 弓
+    12: "Knuckles",  # 拳套
+    13: "Instruments",  # 樂器
+    14: "Whips",  # 鞭子
+    15: "Books",  # 書
+    16: "Katars",  # 拳刃
+    17: "Guns",  # 左輪手槍
+    18: "Guns",  # 來福槍
+    19: "Guns",  # 格林機關槍
+    20: "Guns",  # 霰彈槍
+    21: "Guns",  # 榴彈槍
+    22: "Shuriken",  # 風魔飛鏢
+    23: "Rods",  # 雙手仗
+}
 #weapon_class
 weapon_type_size_penalty = {#物體武器體型修正
     0: [100, 100, 100],# 空手
@@ -410,6 +423,71 @@ damage_tables = {
 }
 
 
+equipid_mapping = {#主程式equip to ROCalculator 轉換
+    "equip_STR": "STR",
+    "equip_AGI": "AGI",
+    "equip_VIT": "VIT",
+    "equip_INT": "INT",
+    "equip_DEX": "DEX",
+    "equip_LUK": "LUK",
+    "equip_POW": "POW",
+    "equip_STA": "STA",
+    "equip_WIS": "WIS",
+    "equip_SPL": "SPL",
+    "equip_CON": "CON",
+    "equip_CRT": "CRT",
+    "Use_Skills": "SkillDamagePercent",
+    #魔法
+    "SMATK": "SMATK",
+    "MATK_armor": "Matk",
+    "MATK_percent": "MatkPercent",
+    "RaceMatkPercent": "RaceMatkPercent",
+    "SizeMatkPercent": "SizeMatkPercent",
+    "LevelMatkPercent": "LevelMatkPercent",
+    "ElementalMatkPercent": "ElementalMatkPercent",
+    "ElementalMagicPercent": "ElementalMagicPercent",
+
+    #物理
+    "PATK": "PATK",
+    "CRATE":"CRIDR",
+    "ATK_armor": "Atk",
+    "ATK_percent": "AtkPercent",
+    "RaceAtkPercent": "RaceAtkPercent",
+    "SizeAtkPercent": "SizeAtkPercent",
+    "LevelAtkPercent": "LevelAtkPercent",
+    "ElementalAtkPercent": "ElementalAtkPercent",
+    "Damage_CRI": "CriDamagePercent",
+    "MeleeAttackDamage": "MeleeDamagePercent",
+    "RangeAttackDamage": "RangedDamagePercent",
+    
+}
+
+status_mapping = {#主程式status to ROCalculator 轉換
+    "BaseLv": "Level",
+    "JobLv": "JOBLevel",
+    "base_STR": "STR",
+    "base_AGI": "AGI",
+    "base_VIT": "VIT",
+    "base_INT": "INT",
+    "base_DEX": "DEX",
+    "base_LUK": "LUK",
+    "base_POW": "POW",
+    "base_STA": "STA",
+    "base_WIS": "WIS",
+    "base_SPL": "SPL",
+    "base_CON": "CON",
+    "base_CRT": "CRT",
+}
+
+weapon_mapping = {#主程式weapon to ROCalculator 轉換
+    "weapon_codes": ("type", "id"),
+    "weapon_Level": ("level", "id"),
+    "weaponGradeR": ("grade", "id"),
+    "ATK_Mweapon": "ATK",
+    "MATK_Mweapon": "MATK",
+    "weaponRefineR": "refinelevel",
+    "ammoATK": "ArrowATK"
+}
 
 
 
@@ -1629,7 +1707,9 @@ class ItemSearchApp(QWidget):
 
         print("【🧠 執行 replace_custom_calc_content()】")
         # 原本你的公式解析邏輯
-
+                #轉成全域變數
+        def get_effect_multiplier(category, index):
+            return getattr(self, f"{category}_{index}", 0)
         
         result = []
         stat_names = ["STR", "AGI", "VIT", "INT", "DEX", "LUK",
@@ -1670,46 +1750,49 @@ class ItemSearchApp(QWidget):
             globals()[f"total_{stat}"] = total
 
         #======================取所有增傷資料到變數區=====================
-        
         effect_dict = getattr(self, "effect_dict_raw", {})
+        #呼叫處理物理,魔法增傷,無視防禦 例:(對"小型"敵人的魔法傷害 +5%)
+        self.apply_all_damage_effects(effect_dict)
         #武器類型(數字)
         weapon_class = global_weapon_type_map.get(4, 0)
+        #武器類型(代號)
+        globals()["weapon_codes"] = weapon_class_codes.get(weapon_class, "?")
+
         #裝備ATK(不含武器)
-        ATK_armor = sum(val for val, _ in effect_dict.get(("ATK", ""), []))
+        globals()["ATK_armor"] = sum(val for val, _ in effect_dict.get(("ATK", ""), []))
         #修煉ATK
         WeaponMasteryATK = sum(val for val, _ in effect_dict.get(("修煉ATK", ""), []))
         #裝備MATK(不含武器)
-        MATK_armor = sum(val for val, _ in effect_dict.get(("MATK", ""), []))
+        globals()["MATK_armor"] = sum(val for val, _ in effect_dict.get(("MATK", ""), []))
         #裝備ATK%
-        ATK_percent = sum(val for val, _ in effect_dict.get(("ATK%", "%"), []))
+        globals()["ATK_percent"] = sum(val for val, _ in effect_dict.get(("ATK%", "%"), []))
         #裝備MATK%
-        MATK_percent = sum(val for val, _ in effect_dict.get(("MATK%", "%"), []))
+        globals()["MATK_percent"] = sum(val for val, _ in effect_dict.get(("MATK%", "%"), []))
         #武器ATK
-        ATK_Mweapon = sum(val for val, _ in effect_dict.get(("武器ATK", ""), []))
+        globals()["ATK_Mweapon"] = sum(val for val, _ in effect_dict.get(("武器ATK", ""), []))
         #武器MATK
-        MATK_Mweapon = sum(val for val, _ in effect_dict.get(("武器MATK", ""), []))
+        globals()["MATK_Mweapon"] = sum(val for val, _ in effect_dict.get(("武器MATK", ""), []))
         #武器等級
-        weapon_Level = sum(val for val, _ in effect_dict.get(("武器等級", ""), []))
+        globals()["weapon_Level"] = sum(val for val, _ in effect_dict.get(("武器等級", ""), []))
         #箭矢彈藥ATK
-        ammoATK = sum(val for val, _ in effect_dict.get(("箭矢/彈藥ATK", ""), []))
+        globals()["ammoATK"] = sum(val for val, _ in effect_dict.get(("箭矢/彈藥ATK", ""), []))
         #武器精煉R右L左
-        weaponRefineR = int(self.refine_inputs_ui["右手(武器)"]["refine"].text())
+        globals()["weaponRefineR"] = int(self.refine_inputs_ui["右手(武器)"]["refine"].text())
         weaponRefineL = int(self.refine_inputs_ui["左手(盾牌)"]["refine"].text())
         #武器階級R右L左
-        weaponGradeR = int(self.refine_inputs_ui["右手(武器)"]["grade"].currentIndex())
+        globals()["weaponGradeR"] = int(self.refine_inputs_ui["右手(武器)"]["grade"].currentIndex())
         weaponGradeL = int(self.refine_inputs_ui["左手(盾牌)"]["grade"].currentIndex())
         #print(f"{weaponRefineR} {weaponRefineL} {weaponGradeR} {weaponGradeL}")
-        PATK = sum(val for val, _ in effect_dict.get(("P.ATK", ""), []))
-        SMATK = sum(val for val, _ in effect_dict.get(("S.MATK", ""), []))
+        globals()["PATK"] = sum(val for val, _ in effect_dict.get(("P.ATK", ""), []))
+        globals()["SMATK"] = sum(val for val, _ in effect_dict.get(("S.MATK", ""), []))
         #print(f"S.MATK{SMATK}")
         #公式用
-        SKILL_HW_MAGICPOWER = sum(val for val, _ in effect_dict.get(("可使用【魔力增幅】Lv.", ""), []))
-        
+        SKILL_HW_MAGICPOWER = sum(val for val, _ in effect_dict.get(("可使用【魔力增幅】Lv.", ""), []))        
         SKILL_ASC_KATAR = (sum(val for val, _ in effect_dict.get(("可使用【高階拳刃修練】Lv.", ""), [])) * 2) + 10 if weapon_class == 16 else 0
-
         #print(f"高階拳刃修煉 {SKILL_ASC_KATAR}")
         #print(f"魔力增幅 {SKILL_HW_MAGICPOWER}")
-        
+
+
         # 從下拉選單與欄位取得目標資訊
         target_size    = self.size_box.currentData()
         target_element = self.element_box.currentData()
@@ -1717,6 +1800,19 @@ class ItemSearchApp(QWidget):
         target_class   = self.class_box.currentData()
         User_attack_element = self.attack_element_box.currentData()
 
+        #輸出ROCalculator全域變數區 globals()[""] = 
+        globals()["RaceMatkPercent"] = get_effect_multiplier('MD_Race', target_race) + get_effect_multiplier('MD_Race', 9999)#魔法種族
+        globals()["SizeMatkPercent"] = get_effect_multiplier('MD_size', target_size)#魔法體型
+        globals()["LevelMatkPercent"] = get_effect_multiplier('MD_class', target_class)#魔法階級
+        globals()["ElementalMatkPercent"] = get_effect_multiplier('MD_element', target_element) + get_effect_multiplier('MD_element', 10)#魔法屬性敵人
+        globals()["ElementalMagicPercent"] = get_effect_multiplier('MD_Damage', User_attack_element) + get_effect_multiplier('MD_Damage', 10)#屬性魔法
+        globals()["RaceAtkPercent"] = get_effect_multiplier('D_Race', target_race) + get_effect_multiplier('D_Race', 9999)#物理種族
+        globals()["SizeAtkPercent"] = get_effect_multiplier('D_size', target_size)#物理體型
+        globals()["LevelAtkPercent"] = get_effect_multiplier('D_class', target_class)#物理階級
+        globals()["ElementalAtkPercent"] = get_effect_multiplier('D_element', target_element) + get_effect_multiplier('D_element', 10)#物理屬性敵人
+        
+
+        
         
         skill_hits = int(self.skill_hits_input.text())#攻擊次數
         #print(f"打擊次數 {skill_hits}")
@@ -1784,26 +1880,23 @@ class ItemSearchApp(QWidget):
         #=============參考動態變數自動抓技能%=(裝備段)==============
         # 從 skill_box 取得目前選中的技能名稱（顯示文字）
         selected_skill_name = self.skill_box.currentText()
-        Use_Skills = sum(val for val, _ in effect_dict.get((f"技能【{selected_skill_name}】傷害(裝備段)", "%"), []))
+        globals()["Use_Skills"] = sum(val for val, _ in effect_dict.get((f"技能【{selected_skill_name}】傷害(裝備段)", "%"), []))
         #=============參考動態變數自動抓技能%=(技能段)==============      
         passive_skill_buff = sum(val for val, _ in effect_dict.get((f"技能【{selected_skill_name}】傷害(技能段)", "%"), []))
         #=====================其他物理增傷========================
-        MeleeAttackDamage = sum(val for val, _ in effect_dict.get((f"近距離物理傷害", "%"), []))
-        RangeAttackDamage = sum(val for val, _ in effect_dict.get((f"遠距離物理傷害", "%"), []))
-        Damage_CRI = sum(val for val, _ in effect_dict.get((f"爆擊傷害", "%"), []))
-        CRATE = sum(val for val, _ in effect_dict.get((f"C.RATE", ""), []))   
+        globals()["MeleeAttackDamage"] = sum(val for val, _ in effect_dict.get((f"近距離物理傷害", "%"), []))
+        globals()["RangeAttackDamage"] = sum(val for val, _ in effect_dict.get((f"遠距離物理傷害", "%"), []))
+        globals()["Damage_CRI"] = sum(val for val, _ in effect_dict.get((f"爆擊傷害", "%"), []))
+        globals()["CRATE"] = sum(val for val, _ in effect_dict.get((f"C.RATE", ""), []))   
         Ignore_size = sum(val for val, _ in effect_dict.get((f"武器體型修正", "%"), []))   
         
-        #呼叫處理物理,魔法增傷,無視防禦 例:(對"小型"敵人的魔法傷害 +5%)
-        self.apply_all_damage_effects(effect_dict)
+
         
 
 
         #========================以上魔法增傷===================
         
-        #轉成全域變數
-        def get_effect_multiplier(category, index):
-            return getattr(self, f"{category}_{index}", 0)
+
 
 
         #=======取得目前有的技能等級如果沒有回傳0        
@@ -5410,25 +5503,169 @@ class ItemSearchApp(QWidget):
     
     def setup_menu(self):
         menubar = QMenuBar(self)
+
+        # === 檔案選單 ===
         file_menu = menubar.addMenu("檔案")
 
         open_action = QAction("開啟", self)
         open_action.triggered.connect(self.open_project_file)
-        file_menu.addAction(open_action)
-        
-        # 如果你有 menu bar
+        file_menu.addAction(open_action)        
+
         save_action = QAction("存檔", self)
         save_action.triggered.connect(self.save_file)
         file_menu.addAction(save_action)
 
-        
         save_as_action = QAction("另存新檔", self)
         save_as_action.triggered.connect(self.save_as_file)
-        file_menu.addAction(save_as_action)  # 如果你有 menubar
-        
+        file_menu.addAction(save_as_action)
 
-        # 加入選單到主 layout
+        ROC_save_as_action = QAction("另存到ROCalculator", self)
+        ROC_save_as_action.triggered.connect(
+            lambda checked=False: self.add_effects_from_variables("data\default.txt", equipid_mapping, status_mapping)
+        )   
+
+        file_menu.addAction(ROC_save_as_action)
+
+        # === 設定選單 ===
+        settings_menu = menubar.addMenu("設定")
+
+        preferences_action = QAction("偏好設定", self)
+        preferences_action.triggered.connect#(self.open_preferences)
+        settings_menu.addAction(preferences_action)
+
+
+        # === 說明選單 ===
+        help_menu = menubar.addMenu("說明")
+
+        help_action = QAction("使用說明", self)
+        help_action.triggered.connect#(self.show_help)
+        help_menu.addAction(help_action)
+
+        about_action = QAction("關於", self)
+        about_action.triggered.connect#(self.show_about)
+        help_menu.addAction(about_action)
+
+        # === 加入選單到主 layout ===
         self.layout().setMenuBar(menubar)
+
+
+
+    def add_effects_from_variables(self, template_path, equipid_mapping, status_mapping):  # 直接輸出 .ROC
+        import json, copy, os, base64
+        from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
+
+        # === 擷取類別或全域變數 ===
+        context = globals()
+
+        # === 讀取模板 JSON ===
+        with open(template_path, "r", encoding="utf-8") as f:
+            template = json.load(f)
+        new_data = copy.deepcopy(template)
+
+        # === 找到主手裝備的 effectlist ===
+        equip_list = new_data.get("Equip", [])
+        if not equip_list:
+            QMessageBox.warning(self, "錯誤", "模板檔案中沒有 Equip 資料")
+            return
+        effect_list = equip_list[0].get("effectlist", [])
+
+        # === 根據 equipid_mapping 新增效果到 Equip ===
+        for var_name, effect_id in equipid_mapping.items():
+            if var_name in context:
+                value = context[var_name]
+                new_effect = {
+                    "EffectNumber": value,
+                    "EffectType": {"id": effect_id},
+                    "Enable": True
+                }
+                effect_list.append(new_effect)
+                print(f"✅ 已新增效果：{effect_id} = {value}")
+            else:
+                print(f"⚠️ 找不到變數：{var_name}，略過。")
+
+        # === 根據 status_mapping 更新 Status ===
+        status_data = new_data.get("Status", {})
+        if status_data:
+            for var_name, status_key in status_mapping.items():
+                if var_name in context:
+                    new_value = context[var_name]
+                    old_value = status_data.get(status_key, None)
+                    status_data[status_key] = new_value
+                    print(f"🔄 Status[{status_key}] 從 {old_value} → {new_value}")
+                else:
+                    print(f"⚠️ 找不到變數：{var_name}（對應 Status[{status_key}]），略過。")
+        else:
+            print("⚠️ 模板中沒有 Status 區塊。")
+
+        # === 根據 weapon_mapping 更新 Weapon ===
+        weapon_data = new_data.get("Weapon", {})
+        if weapon_data:
+            for var_name, weapon_key in weapon_mapping.items():
+                if var_name in context:
+                    new_value = context[var_name]
+
+                    # weapon_key 可能是單層或雙層 key
+                    if isinstance(weapon_key, tuple) and len(weapon_key) == 2:
+                        first, second = weapon_key
+                        if first in weapon_data and isinstance(weapon_data[first], dict):
+                            old_value = weapon_data[first].get(second, None)
+                            weapon_data[first][second] = new_value
+                            print(f"🔄 Weapon[{first}][{second}] 從 {old_value} → {new_value}")
+                        else:
+                            print(f"⚠️ Weapon 中沒有 {first} 層級，略過。")
+                    else:
+                        old_value = weapon_data.get(weapon_key, None)
+                        weapon_data[weapon_key] = new_value
+                        print(f"🔄 Weapon[{weapon_key}] 從 {old_value} → {new_value}")
+                else:
+                    print(f"⚠️ 找不到變數：{var_name}（對應 Weapon[{weapon_key}]），略過。")
+        else:
+            print("⚠️ 模板中沒有 Weapon 區塊。")
+
+        # === 從視窗標題推斷檔名 ===
+        full_title = self.windowTitle().strip() or "RO物品查詢計算工具 - 未命名"
+        if " - " in full_title:
+            filename_part = full_title.split(" - ", 1)[1]
+        else:
+            filename_part = "未命名"
+
+        for bad_char in '\\/:*?"<>|':
+            filename_part = filename_part.replace(bad_char, "_")
+
+        filename_part = os.path.splitext(filename_part)[0]
+        suggested_filename = f"{filename_part}.roc"
+
+        # === 顯示另存新檔 ===
+        app = QApplication.instance() or QApplication([])
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "另存 ROC 檔",
+            suggested_filename,
+            "ROC 檔案 (*.roc)"
+        )
+
+        if not file_path:
+            return
+
+        # 確保副檔名正確
+        if not file_path.lower().endswith(".roc"):
+            file_path += ".roc"
+
+        # === 直接轉成 base64 並寫出 ROC 檔 ===
+        try:
+            encoded = base64.b64encode(json.dumps(new_data, ensure_ascii=False).encode("utf-8")).decode("utf-8")
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(encoded)
+            print(f"✅ 已新增效果並更新 Status，直接輸出 ROC 檔：{file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "錯誤", f"ROC 轉換或儲存失敗：{e}")
+            print(f"❌ 轉換失敗：{e}")
+
+
+
+
+
+        
         
     def save_as_file(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "另存新檔", "", "JSON Files (*.json);;All Files (*)")
