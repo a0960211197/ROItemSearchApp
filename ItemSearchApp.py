@@ -934,8 +934,8 @@ def parse_lua_effects_with_variables(
                 # invert=True 會反轉（給「攻擊後延遲」用）
                 return "+" if ((op_ == "Add") != invert) else "-"
 
-            # 特例 1：CRI（每 10 = 1%），不加 %
-            if effect_str == "CRI":
+            # 特例 1：CRI、完全迴避（每 10 = 1）
+            if effect_str in ("CRI", "完全迴避"):
                 v = val // 10
                 results.append(f"{effect_str} {sign_for(op)}{v}")
                 continue
