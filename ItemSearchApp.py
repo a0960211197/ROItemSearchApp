@@ -5668,8 +5668,21 @@ class ItemSearchApp(QWidget):
         
         
     def save_as_file(self):
-        file_path, _ = QFileDialog.getSaveFileName(self, "另存新檔", "", "JSON Files (*.json);;All Files (*)")
+        # 預設開啟的資料夾
+        default_dir = os.path.join(os.getcwd(),"裝備")
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "另存新檔",
+            default_dir,  # ✅ 預設路徑
+            "JSON Files (*.json)"
+        )
+
         if file_path:
+            # 確保副檔名是 .json
+            if not file_path.lower().endswith(".json"):
+                file_path += ".json"
+
             self.save_to_file(file_path)
             
     def save_to_file(self, file_path):
@@ -5721,9 +5734,17 @@ class ItemSearchApp(QWidget):
 
 
 
+
+
     def open_project_file(self):
+        # 設定預設資料夾
+        default_dir = os.path.join(os.getcwd(),"裝備")
+    
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "選擇專案檔", "", "JSON Files (*.json)"
+            self,
+            "選擇專案檔",
+            default_dir,  # ✅ 預設資料夾
+            "JSON Files (*.json)"
         )
         if not file_path:
             return
@@ -5731,13 +5752,13 @@ class ItemSearchApp(QWidget):
         try:
             self.skill_filter_input.clear()
             self.load_saved_inputs(file_path)
-            #QMessageBox.information(self, "成功", f"已載入專案：\n{file_path}")
             self.current_file = file_path
             self.update_window_title()
-            # 呼叫更新計算
             self.display_all_effects()
+            self.update_dex_int_half_note()
         except Exception as e:
             QMessageBox.critical(self, "錯誤", f"載入失敗：\n{str(e)}")
+
 
 
     def clear_current_edit(self):
