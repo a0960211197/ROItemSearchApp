@@ -1427,7 +1427,12 @@ def parse_lua_effects_with_variables(
             
         # 階級物理傷害加成：ClassAddDamage(1, class_id, value)
 
-        register_function("ClassAddDamage", "階級的物理傷害", [
+        register_function("ClassAddDamage", "增加階級的物理傷害", [
+            {"name": "階級", "map": "class_map"},
+            {"name": "目標", "map": "unit_map"},
+            {"name": "數值%", "type": "value"}
+        ])
+        register_function("ClassSubDamage", "減少階級的物理傷害", [
             {"name": "階級", "map": "class_map"},
             {"name": "目標", "map": "unit_map"},
             {"name": "數值%", "type": "value"}
@@ -4317,18 +4322,127 @@ class ItemSearchApp(QWidget):
         # 讀取資料
         self.parsed_items = parse_lub_file(lua_output)#讀取物品名稱
 
+        import shutil
+        if getattr(sys, 'frozen', False):
+            BASE_DIR = os.path.dirname(sys.executable)
+        else:
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
         equipment_lua_path = "data/EquipmentProperties.lua"
+        # === 設定路徑 ===
+        GRFCL_EXE = os.path.join(BASE_DIR, "APP", "GrfCL.exe")
+        GRF_PATH = r"C:\Program Files (x86)\Gravity\RagnarokOnline\data.grf"
+        UNLUAC_JAR = os.path.join(BASE_DIR, "APP", "unluac.jar")
+        INPUT_FILE = os.path.join(BASE_DIR, "data", "LuaFiles514", "Lua Files", "EquipmentProperties", "EquipmentProperties.lub")
+        OUTPUT_FOLDER = os.path.join(BASE_DIR, "data")
+        OUTPUT_FILE = os.path.join(OUTPUT_FOLDER, "EquipmentProperties.lua")
+
+
+        # === 從 GRF 解壓 LUB ===
+        def extract_lub_from_grf():
+            #print("🔍 檢查 GRFCL_EXE 實際路徑：", GRFCL_EXE)
+            #print("🔍 存在嗎？", os.path.exists(GRFCL_EXE))
+            if not os.path.exists(GRFCL_EXE):
+                print(f" 找不到 GrfCL.exe：{GRFCL_EXE}")
+                return False
+
+            print(" 正在從 GRF 解壓 LUB 檔...")
+            result = subprocess.run([
+                GRFCL_EXE,
+                "-open", GRF_PATH,
+                "-extractFolder", ".",
+                "data\\LuaFiles514\\Lua Files\\EquipmentProperties\\EquipmentProperties.lub",
+                "-exit"
+            ], cwd=BASE_DIR, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            #print("stdout:", result.stdout)
+            #print("stderr:", result.stderr)
+
+            if result.returncode != 0:
+                print(" 解壓失敗：")
+                print(result.stderr)
+                return False
+
+            print(" 解壓完成")
+            return True
+
+        # === 使用 unluac.jar 反編譯 ===
+        def run_unluac(lub_file, lua_file):
+            os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+            with open(lua_file, "w", encoding="utf-8") as out:
+                subprocess.run(["java", "-jar", UNLUAC_JAR, lub_file], stdout=out, stderr=subprocess.DEVNULL)
+
+        # === 清理格式 ===
+        def split_local_variables(code):
+            pattern = re.compile(r'^(\s*)local\s+([\w\s,]+?)\s*=\s*([^\n]+)$', re.MULTILINE)
+            def replacer(match):
+                indent = match.group(1)
+                var_str = match.group(2)
+                val_str = match.group(3)
+                vars = [v.strip() for v in var_str.split(',')]
+                vals = [v.strip() for v in val_str.split(',')]
+                lines = []
+                for i, var in enumerate(vars):
+                    val = vals[i] if i < len(vals) else 'nil'
+                    lines.append(f"{indent}local {var} = {val}")
+                return '\n'.join(lines)
+            return pattern.sub(replacer, code)
+
+        def flatten_array_fields(code):
+            pattern = re.compile(r'^(\s*)(\w+)\s*=\s*\{\s*\n((?:\s*\d+\s*,?\n)+)(\s*)\}', re.MULTILINE)
+            def replacer(match):
+                indent = match.group(1)
+                key = match.group(2)
+                values_block = match.group(3)
+                values = [v.strip().strip(',') for v in values_block.strip().splitlines() if v.strip()]
+                flat = ', '.join(values)
+                return f"{indent}{key} = {{ {flat} }}"
+            return pattern.sub(replacer, code)
+
+        def clean_lua_format(lua_file):
+            with open(lua_file, "r", encoding="utf-8") as f:
+                code = f.read()
+            code = split_local_variables(code)
+            code = flatten_array_fields(code)
+             # ✅ 新增：移除不需要的區塊
+            code = remove_specific_blocks(code, ["SkillGroup", "RefiningBonus", "GradeBonus"])
+            with open(lua_file, "w", encoding="utf-8") as f:
+                f.write(code)
+
+        def remove_specific_blocks(code, block_names):
+            for name in block_names:
+                # 移除整個形如：Name = { ... } 的區塊（非巢狀處理）
+                pattern = re.compile(rf'{name}\s*=\s*\{{.*?\n\}}', re.DOTALL)
+                code = pattern.sub('', code)
+            return code
 
         if not os.path.exists(equipment_lua_path):
             print("⚠️ 找不到 EquipmentProperties.lua，執行 convert_lub_to_lua.py 生成...")
-            result = subprocess.run(["python", "convert_lub_to_lua.py"], capture_output=True, text=True)
-
-            if result.returncode != 0:
-                print("❌ 執行失敗：")
-                print(result.stderr)
-                exit(1)
+            if not extract_lub_from_grf():
+                pass  # 已顯示錯誤
+            elif not os.path.exists(INPUT_FILE):
+                print(f" 找不到檔案: {INPUT_FILE}")
+            elif not os.path.exists(UNLUAC_JAR):
+                print(f" 找不到 unluac.jar，請放在 APP 資料夾中")
             else:
+                print(" 正在反編譯...")
+                run_unluac(INPUT_FILE, OUTPUT_FILE)
+                print(" 正在整理格式...")
+                clean_lua_format(OUTPUT_FILE)
                 print("✅ EquipmentProperties.lua 已成功生成")
+                if getattr(sys, 'frozen', False):
+                    base_dir = os.path.dirname(sys.executable)
+                else:
+                    base_dir = os.path.dirname(os.path.abspath(__file__))
+
+                temp_folder = os.path.join(base_dir, "data", "LuaFiles514")
+                if os.path.exists(temp_folder):
+                    try:
+                        shutil.rmtree(temp_folder)
+                        print(f"✅ 已刪除暫存資料夾")
+                    except Exception as e:
+                        print(f"⚠️ 刪除暫存資料夾失敗：{e}")
+                else:
+                    print(f"⚠️ 找不到暫存資料夾：{temp_folder}")
         else:
             print("✅ 找到 EquipmentProperties.lua，跳過編譯處理")
 
@@ -4899,6 +5013,7 @@ class ItemSearchApp(QWidget):
         self.btn_recompile = QPushButton("重新編譯(需先更新RO主程式。)")
         self.btn_recompile.clicked.connect(self.recompile)
         middle_layout.addWidget(self.btn_recompile)
+        #self.btn_recompile.setVisible(False)#重新編譯先隱藏
         
        
 
@@ -5519,17 +5634,17 @@ class ItemSearchApp(QWidget):
         save_as_action.triggered.connect(self.save_as_file)
         file_menu.addAction(save_as_action)
 
-        ROC_save_as_action = QAction("另存到ROCalculator", self)
+        ROC_save_as_action = QAction("另存到.ROC(ROCalculator)", self)
         ROC_save_as_action.triggered.connect(
             lambda checked=False: self.add_effects_from_variables("data\default.txt", equipid_mapping, status_mapping)
         )   
 
         file_menu.addAction(ROC_save_as_action)
-
+        '''
         # === 設定選單 ===
         settings_menu = menubar.addMenu("設定")
 
-        preferences_action = QAction("偏好設定", self)
+        preferences_action = QAction("偏好設定()", self)
         preferences_action.triggered.connect#(self.open_preferences)
         settings_menu.addAction(preferences_action)
 
@@ -5544,10 +5659,10 @@ class ItemSearchApp(QWidget):
         about_action = QAction("關於", self)
         about_action.triggered.connect#(self.show_about)
         help_menu.addAction(about_action)
-
+        '''
         # === 加入選單到主 layout ===
         self.layout().setMenuBar(menubar)
-
+        
 
 
     def add_effects_from_variables(self, template_path, equipid_mapping, status_mapping):  # 直接輸出 .ROC
