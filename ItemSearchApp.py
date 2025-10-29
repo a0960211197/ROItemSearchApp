@@ -1275,7 +1275,7 @@ def parse_lua_effects_with_variables(
             {"name": "目標", "map": "unit_map"},
             {"name": "數值%", "type": "value"}
         ])
-        melee_dmg = re.match(r"AddMeleeAttackDamage\(\s*1\s*,\s*(.+?)\)", line)
+        melee_dmg = re.match(r"AddMeleeAttackDamage\(\s*1\s*,\s*(.+)\)", line)
         if melee_dmg and condition_met:
             value_expr = melee_dmg.group(1)
             value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
