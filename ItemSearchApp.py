@@ -2636,7 +2636,7 @@ class ItemSearchApp(QWidget):
 
 
     def generate_highlighted_html(self, lines: list[str]) -> str:
-        app = QApplication.instance()
+        app = QApplication.instance()        
         if not app:
             raise RuntimeError("QApplication 尚未建立")
 
@@ -5217,17 +5217,36 @@ class ItemSearchApp(QWidget):
         
         
         def filter_skills():
-            filter_text = self.skill_filter_input.text().lower()
+            text = self.skill_filter_input.text().strip().lower()
+            self.skill_box.blockSignals(True)  # 暫時停止訊號，避免重複觸發
+
             self.skill_box.clear()
 
-            for key, name in skill_map.items():
-                # 取得技能資料
+            for key, display_name in skill_map.items():
                 skill_data = skill_map_all.get(key)
                 slv = skill_data.get("Slv") if skill_data else None
 
-                # 同時符合名稱關鍵字與 Slv 有填，才加入
-                if filter_text in name.lower() and pd.notna(slv) and str(slv).strip() != "":
-                    self.skill_box.addItem(name, key)
+                # 無搜尋文字時，只顯示有 Slv 的技能
+                if text == "":
+                    if pd.notna(slv) and str(slv).strip() != "":
+                        self.skill_box.addItem(display_name, key)
+                else:
+                    # 有搜尋時顯示所有技能（包含沒有 Slv）
+                    if text in display_name.lower():
+                        self.skill_box.addItem(display_name, key)
+
+            self.skill_box.blockSignals(False)
+
+            # 若有項目，自動選第一個並更新顯示
+            if self.skill_box.count() > 0:
+                self.skill_box.setCurrentIndex(0)
+                update_skill_formula_display()
+            else:
+                # 清空顯示
+                self.skill_formula_result_input.setText("0%")
+                self.skill_LV_input.setText("0")
+                self.skill_hits_input.setText("")
+
 
 
         
