@@ -694,8 +694,8 @@ def parse_lua_effects_with_variables(
             comment = line.split("=", 1)[1].strip()
             results.append(f"P.S：{comment}")
             continue
-        # 🔽 固定替換 GetPetRelationship() 為 4 寵物親密度 預設非常親密
-        line = re.sub(r"GetPetRelationship\s*\(\s*\)", "4", line)
+        # 🔽  GetPetRelationship() 替換為傳入的裝備階級
+        line = re.sub(r"GetPetRelationship\s*\(\s*\)", str(grade), line)
 
         # 將 GetEquipGradeLevel(GetLocation()) 替換為傳入的裝備階級
         line = re.sub(r"GetEquipGradeLevel\s*\(\s*GetLocation\s*\(\s*\)\s*\)", str(grade), line)
@@ -4512,7 +4512,7 @@ class ItemSearchApp(QWidget):
         self.stat_fields = {
             "BaseLv": 11, "JobLv": 12, "JOB": 19, 
             "STR": 32, "AGI": 33, "VIT": 34, "INT": 35, "DEX": 36, "LUK": 37,
-            "POW": 255, "STA": 256, "WIS": 257, "SPL": 258, "CON": 259, "CRT": 260#,"石碑開啟格數": 263 ,"石碑精煉": 264
+            "POW": 255, "STA": 256, "WIS": 257, "SPL": 258, "CON": 259, "CRT": 260,"石碑開啟格數": 263 ,"石碑精煉": 264
             
         }
 
@@ -4542,6 +4542,10 @@ class ItemSearchApp(QWidget):
             "服飾頭中":   {"slot": 42, "type": "服飾"},
             "服飾頭下":   {"slot": 43, "type": "服飾"},
             "服飾斗篷":   {"slot": 44, "type": "服飾"},
+            
+            # === 石碑/寵物部位 ===
+            "符文石碑":   {"slot": 100, "type": "石碑"},
+            "寵物蛋":   {"slot": 101, "type": "寵物"},
         }
         def get_part_slot_from_source(source_str):
             for part_name, info in self.refine_parts.items():
@@ -4636,7 +4640,11 @@ class ItemSearchApp(QWidget):
                     # ❗ BaseLv 輸入時更新
                     field.textChanged.connect(update_stat_point)
                     self._update_stat_point_callback = update_stat_point  # ✅ 暫存回呼
-                      
+                 # 🟣 隱藏「石碑」相關欄位
+                if label in ["石碑開啟格數", "石碑精煉"]:
+                    row_label.setVisible(False)
+                    field.setVisible(False)
+                    continue  # 不需要顯示在角色能力區     
 
             
             char_layout.addLayout(row_layout)
@@ -4663,7 +4671,7 @@ class ItemSearchApp(QWidget):
         equip_layout.addWidget(QLabel("裝備與卡片設定"))
 
         self.refine_inputs_ui = {}
-        visible_types = ["裝備", "影子", "服飾"]
+        visible_types = ["裝備", "影子", "服飾", "石碑", "寵物"]
 
         for part_name, info in self.refine_parts.items():
             if info["type"] not in visible_types:
@@ -4756,7 +4764,13 @@ class ItemSearchApp(QWidget):
             # ▶️ 裝備欄位 + 清空
             equip_input = QLineEdit()
             equip_input.setReadOnly(True)
-            equip_input.setPlaceholderText("裝備名稱")
+            if part_name == "符文石碑":
+                equip_input.setPlaceholderText("石碑名稱")
+            elif part_name == "寵物蛋":
+                equip_input.setPlaceholderText("寵物名稱")
+            else:
+                equip_input.setPlaceholderText("裝備名稱")
+
             equip_input.setMinimumWidth(100)
             equip_input.mousePressEvent = make_focus_func_focus(part_name, equip_input, "裝備")
 
@@ -4781,12 +4795,61 @@ class ItemSearchApp(QWidget):
 
             # ▶️ 階級下拉
             grade_combo = QComboBox()
-            grade_combo.addItems(["N", "D", "C", "B", "A"])
-            grade_combo.setMaximumWidth(50)
+            if part_name == "符文石碑":
+                grade_combo.addItems(["0", "1", "2", "3", "4", "5", "6" ])
+                grade_combo.setMaximumWidth(50)
+            elif part_name == "寵物蛋":
+                grade_combo.addItems(["非常陌生", "稍微陌生", "普通", "稍微親密", "非常親密"])
+                grade_combo.setMaximumWidth(95)
+            else:
+                grade_combo.addItems(["N", "D", "C", "B", "A"])
+                grade_combo.setMaximumWidth(50)
             grade_combo.currentIndexChanged.connect(self.display_item_info)
             equip_row_layout.addWidget(grade_combo)
             part_ui["grade"] = grade_combo
             self.input_fields[f"{part_name}_階級"] = grade_combo
+
+            # 🟢 特例：符文石碑 → 同步階級與精煉到 stat_fields
+
+            if part_name == "符文石碑":
+
+                def sync_stone_slots_delayed():
+                    val_field = self.refine_inputs_ui["符文石碑"]["grade"]
+                    grade_text = val_field.currentText().strip()
+                    try:
+                        grade_val = int(grade_text)
+                    except ValueError:
+                        grade_val = val_field.currentIndex()
+
+                    stone_slot_field = self.input_fields.get("石碑開啟格數")
+                    if stone_slot_field:
+                        stone_slot_field.blockSignals(True)
+                        stone_slot_field.setText(str(grade_val))
+                        stone_slot_field.blockSignals(False)
+                    self.trigger_total_effect_update()
+                    
+                def sync_stone_slots(*_):
+                    # 🔹 延遲一個事件循環再執行，確保取到更新後的值
+                    QTimer.singleShot(0, sync_stone_slots_delayed)
+
+                def sync_stone_refine():
+                    val_field = self.refine_inputs_ui["符文石碑"]["refine"]
+                    text_val = val_field.text().strip()
+                    try:
+                        val = int(text_val)
+                    except ValueError:
+                        val = 0
+
+                    stone_refine_field = self.input_fields.get("石碑精煉")
+                    if stone_refine_field:
+                        stone_refine_field.blockSignals(True)
+                        stone_refine_field.setText(str(val))
+                        stone_refine_field.blockSignals(False)
+                    self.trigger_total_effect_update()
+
+                grade_combo.currentIndexChanged.connect(sync_stone_slots)
+                refine_input.textChanged.connect(sync_stone_refine)
+
 
             # ▶️ 將裝備行 layout 加進主 layout
             equip_layout.addLayout(equip_row_layout)
@@ -4829,12 +4892,7 @@ class ItemSearchApp(QWidget):
             note_text.setReadOnly(True) 
             note_text.setVisible(False)
             note_text.textChanged.connect(self.on_function_text_changed)
-            
 
-            
-
-            
-            
             note_text_ui = QTextEdit()
             note_text_ui.setPlaceholderText("自訂詞條效果")
             note_text_ui.setObjectName(f"{part_name}-詞條")  # 例如 "頭上-詞條"
@@ -4876,6 +4934,35 @@ class ItemSearchApp(QWidget):
 
             self.refine_inputs_ui[part_name] = part_ui
             self.refresh_presets(part_name)
+
+            # 🟢 特例：符文石碑 → 隱藏卡片與詞條欄位
+            if part_name in ("符文石碑", "寵物蛋"):
+                # 隱藏卡片欄位
+                for c in part_ui["cards"]:
+                    c.setVisible(False)
+                    parent_layout = c.parentWidget()
+                    if parent_layout:
+                        parent_layout.setVisible(False)
+
+                # 隱藏詞條區
+                if "note" in part_ui:
+                    part_ui["note"].setVisible(False)
+                if "note_ui" in part_ui:
+                    part_ui["note_ui"].setVisible(False)
+                note_widget = part_ui["note"].parentWidget()
+                if note_widget:
+                    note_widget.setVisible(False)
+
+                # 🧩 若是寵物蛋，再隱藏精煉欄位
+                if part_name == "寵物蛋" and "refine" in part_ui:
+                    refine_widget = part_ui["refine"]
+                    refine_widget.setVisible(False)
+                    refine_parent = refine_widget.parentWidget()
+                    if refine_parent:
+                        refine_widget.hide()  # 雙保險：同時呼叫 hide()
+
+
+
 
 
 
