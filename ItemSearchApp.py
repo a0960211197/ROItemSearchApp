@@ -585,6 +585,359 @@ def load_skill_map(filepath=None):
 
 
 load_skill_map() #讀取SKILL列表
+import sys
+import csv
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QComboBox,
+    QFormLayout, QLineEdit, QPushButton, QMessageBox, QHBoxLayout
+)
+from PySide6.QtCore import Qt
+skill_editor = None
+class CSVEditor(QMainWindow):
+    def center_to_parent(self):
+        if self.parent():
+            parent_geometry = self.parent().frameGeometry()
+            parent_center = parent_geometry.center()
+            this_geometry = self.frameGeometry()
+            this_geometry.moveCenter(parent_center)
+            self.move(this_geometry.topLeft())
+        else:
+            # 若沒有父視窗，就置中到螢幕中央
+            screen = QApplication.primaryScreen().geometry()
+            x = (screen.width() - self.width()) // 2
+            y = (screen.height() - self.height()) // 2
+            self.move(x, y)
+
+    def __init__(self, file_path, parent=None):
+        super().__init__(parent)  # ✅ 把 parent 傳給 QMainWindow
+        self.file_path = file_path
+        self.setWindowTitle("技能設定編輯器")
+        self.resize(600, 600)
+        self.center_to_parent()
+        self.file_path = file_path
+
+        # 主容器
+        widget = QWidget()
+        self.setCentralWidget(widget)
+        main_layout = QVBoxLayout(widget)
+
+        # === 搜尋 + 選擇 技能（同一行） ===
+        search_name_layout = QHBoxLayout()
+
+        search_label = QLabel("搜尋 技能：")
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("輸入名稱關鍵字...")
+        self.search_box.textChanged.connect(self.filter_names)
+
+        # 🔹 清空按鈕
+        self.clear_search_button = QPushButton("清空")
+        self.clear_search_button.setFixedWidth(50)
+        self.clear_search_button.setToolTip("清除搜尋文字")
+        self.clear_search_button.clicked.connect(self.search_box.clear)
+
+        name_label = QLabel("選擇 技能：")
+        self.name_combo = QComboBox()
+        self.name_combo.setMinimumWidth(200)
+
+        # 加入到同一行
+        search_name_layout.addWidget(search_label)
+        search_name_layout.addWidget(self.search_box)
+        search_name_layout.addWidget(self.clear_search_button)
+        search_name_layout.addSpacing(20)
+        search_name_layout.addWidget(name_label)
+        search_name_layout.addWidget(self.name_combo)
+        search_name_layout.addStretch()
+
+        main_layout.addLayout(search_name_layout)
+
+
+
+        # === 欄位編輯區 ===
+        self.form = QFormLayout()
+        main_layout.addLayout(self.form)
+
+        # === 儲存按鈕 ===
+        self.save_button = QPushButton("💾 儲存變更並關閉")
+        self.save_button.clicked.connect(self.save_changes)
+        main_layout.addWidget(self.save_button, alignment=Qt.AlignRight)
+
+        # === 初始化資料 ===
+        self.all_rows = []     # 存所有行
+        self.filtered_rows = []  # 搜尋後顯示的行
+        self.field_edits = {}
+
+        # === 載入 CSV ===
+        self.load_csv(file_path)
+        self.name_combo.currentIndexChanged.connect(self.update_fields)
+
+    def load_csv(self, file_path):
+        """讀取 CSV 並初始化資料"""
+        with open(file_path, newline='', encoding='utf-8-sig') as csvfile:
+            reader = csv.reader(csvfile)
+            rows = list(reader)
+
+        if not rows:
+            QMessageBox.warning(self, "錯誤", "CSV 檔案是空的！")
+            return
+
+        self.headers = rows[0]
+        self.data = rows[1:]
+
+        # 找出 Name 欄位索引
+        try:
+            self.name_index = next(i for i, h in enumerate(self.headers) if h.lower() in ["name", "skillname"])
+        except StopIteration:
+            QMessageBox.warning(self, "錯誤", "找不到 'Name' 欄位！")
+            return
+
+        # 將所有行資料加入
+        self.all_rows = [row for row in self.data if len(row) > self.name_index]
+        self.filtered_rows = self.all_rows.copy()
+
+        # 填入所有 Name（允許重複）
+        self.name_combo.clear()
+        self.name_combo.addItems([row[self.name_index].strip() for row in self.filtered_rows])
+
+
+        # === 欄位資訊（名稱 + 提示文字） ===
+        header_info = {
+            "ID": {
+                "label": "技能 ID",
+                "tooltip": "技能在資料表中的唯一識別碼，通常不可修改。"
+            },
+            "Code": {
+                "label": "程式代碼",
+                "tooltip": "內部使用的技能代碼，用於程式判斷。"
+            },
+            "attack_type": {
+                "label": "攻擊類型",
+                "tooltip": "選擇攻擊類型：magic 為魔法攻擊，physical 為物理攻擊。"
+            },
+            "Slv": {
+                "label": "技能等級",
+                "tooltip": "此欄可填入技能等級對應數值。(不輸入時不顯示在下拉式選單)"
+            },
+            "Calculation": {
+                "label": "計算公式",
+                "tooltip": "技能傷害或效果的計算公式，可使用 BaseLv、Sklv 等變數。"
+            },
+            "element": {
+                "label": "攻擊屬性",
+                "tooltip": "屬性(無=0,水=1,地=2,火=3,風=4,毒=5,聖=6,暗=7,念=8,不死=9)"
+            },
+            "hits": {
+                "label": "打擊次數",
+                "tooltip": "技能打擊次數。(負值為總傷害/次數)"
+            },
+            "Critical_hit": {
+                "label": "爆擊判定",
+                "tooltip": "設定爆擊倍率，例如 0.5 代表半爆擊。"
+            },
+            "combo": {
+                "label": "連段技能",
+                "tooltip": "此技能觸發的下一個公式。"
+            },
+            "combo_element": {
+                "label": "連段技能攻擊屬性",
+                "tooltip": "連段技能的屬性。(無=0,水=1,地=2,火=3,風=4,毒=5,聖=6,暗=7,念=8,不死=9)"
+            },
+            "combo_hits": {
+                "label": "連段次數",
+                "tooltip": "連段技能的打擊次數。(負值為總傷害/次數)"
+            },
+            "Special_Calculation": {
+                "label": "特殊計算",
+                "tooltip": "特定條件下的技能公式，會覆蓋一般公式。"
+            },
+            "monster_race": {
+                "label": "觸發特殊計算種族",
+                "tooltip": "怪物種族觸發特別公式。(無形=0,不死=1,動物=2,植物=3,昆蟲=4,魚貝=5,惡魔=6,人形=7,天使=8,龍族=9)"
+            },
+            "skill_buff": {
+                "label": "觸發特殊計算技能(ID)",
+                "tooltip": "當前技能觸發的特殊技能 ID（例如狀態技能）。"
+            },
+            "decay_hits": {
+                "label": "遞增/減段數",
+                "tooltip": "設定每段的遞增或遞減次數，例如 4 代表 4 段。"
+            },
+            "bonus_add": {
+                "label": "遞增/減原始數字",
+                "tooltip": "起始加成（或乘數），可輸入 +800 或 *1。"
+            },
+            "bonus_step": {
+                "label": "遞增/減數字",
+                "tooltip": "每段遞增/減的變化量，例如 -100 或 +0.1。"
+            }
+        }
+
+
+        # 建立欄位編輯器
+        for header in self.headers:
+            if header.lower() == "name":
+                continue
+
+            # 取得中文名稱與提示文字
+            info = header_info.get(header, {})
+            display_name = info.get("label", header)
+            tooltip_text = info.get("tooltip", "")
+
+            label_title = QLabel(f"{display_name}：")
+
+            # 有提示文字就加上 tooltip
+            if tooltip_text:
+                label_title.setToolTip(tooltip_text)
+
+            # 建立編輯欄位（例：QLineEdit 或 QComboBox）
+            if header.lower() == "attack_type":
+                edit_field = QComboBox()
+                edit_field.addItems(["magic", "physical"])
+            else:
+                edit_field = QLineEdit()
+                if header.lower() in ["id", "code"]:
+                    edit_field.setReadOnly(True)
+                    edit_field.setStyleSheet("background-color: #f0f0f0; color: #666;")
+
+            self.field_edits[header] = edit_field
+            self.form.addRow(label_title, edit_field)
+
+        if self.filtered_rows:
+            self.update_fields(0)
+
+    def filter_names(self, text):
+        """模糊搜尋 Name"""
+        self.filtered_rows = [row for row in self.all_rows if text.lower() in row[self.name_index].lower()]
+        self.name_combo.clear()
+        self.name_combo.addItems([row[self.name_index].strip() for row in self.filtered_rows])
+        if self.filtered_rows:
+            self.update_fields(0)
+        else:
+            for widget in self.field_edits.values():
+                if isinstance(widget, QLineEdit):
+                    widget.setText("")
+                elif isinstance(widget, QComboBox):
+                    widget.setCurrentIndex(-1)  # 清空選擇（沒有選項）
+
+
+    def update_fields(self, index):
+        """更新欄位內容"""
+        if index < 0 or index >= len(self.filtered_rows):
+            return
+        row = self.filtered_rows[index]
+        for i, header in enumerate(self.headers):
+            if header.lower() == "name":
+                continue
+            if header in self.field_edits:
+                value = row[i] if i < len(row) else ""
+                widget = self.field_edits[header]
+                if isinstance(widget, QComboBox):
+                    index = widget.findText(value)
+                    widget.setCurrentIndex(index if index >= 0 else 0)
+                else:
+                    widget.setText(value)
+
+
+    def save_changes(self):
+        """儲存修改回 CSV"""
+        index = self.name_combo.currentIndex()
+        if index < 0 or index >= len(self.filtered_rows):
+            QMessageBox.warning(self, "錯誤", "請先選擇一個 Name")
+            return
+
+        row = self.filtered_rows[index]
+        for i, header in enumerate(self.headers):
+            if header.lower() == "name":
+                continue
+            if header in self.field_edits:
+                widget = self.field_edits[header]
+
+                # 針對 QLineEdit 檢查唯讀，QComboBox 不檢查
+                if isinstance(widget, QLineEdit) and widget.isReadOnly():
+                    continue
+
+                # 取得值
+                if isinstance(widget, QComboBox):
+                    new_value = widget.currentText()
+                else:
+                    new_value = widget.text()
+
+                # 寫回資料列
+                if i < len(row):
+                    row[i] = new_value
+                else:
+                    row.append(new_value)
+
+
+        # 更新 self.data
+        self.data = [
+            row if row is not self.filtered_rows[index] else self.filtered_rows[index]
+            for row in self.data
+        ]
+
+        # 寫回 CSV
+        try:
+            with open(self.file_path, "w", newline='', encoding='utf-8-sig') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(self.headers)
+                writer.writerows(self.data)
+                load_skill_map()#重新載入技能列表
+            #QMessageBox.information(self, "成功", "已儲存修改！")
+            self.close()
+
+        except Exception as e:
+            QMessageBox.critical(self, "錯誤", f"儲存失敗：{e}")
+
+    def closeEvent(self, event):
+        """當視窗關閉時，先清空主畫面的過濾欄，再回寫目前搜尋字。"""
+        try:
+            # 取得目前搜尋欄的文字
+            skill_name = self.search_box.text().strip()
+
+            # 若主程式存在且有 skill_filter_input，就清空再回寫
+            if hasattr(self, "app_instance") and self.app_instance and hasattr(self.app_instance, "skill_filter_input"):
+                filter_input = self.app_instance.skill_filter_input
+                filter_input.clear()
+                if skill_name:
+                    filter_input.setText(skill_name)
+
+        except Exception as e:
+            print(f"[CSVEditor.closeEvent] 回寫技能名稱失敗：{e}")
+
+        # ✅ 繼續執行原本的關閉事件
+        super().closeEvent(event)
+
+
+
+def open_skill_editor(app_instance=None):
+    global skill_editor  # 🔹 告訴 Python 使用全域變數 skill_editor
+    """
+    開啟技能編輯器。
+    若主程式有 skill_box，會自動帶入名稱；
+    關閉時會自動回寫到 skill_filter_input。
+    """
+    global skill_editor
+
+    if skill_editor is None or not skill_editor.isVisible():
+        # 🔹 將主程式設為 parent，讓視窗可置中
+        skill_editor = CSVEditor(r"data\skillneme.csv", parent=app_instance)
+
+        # ✅ 記錄主程式實例，以便關閉時回寫使用
+        skill_editor.app_instance = app_instance
+
+        skill_editor.show()
+    else:
+        skill_editor.raise_()
+        skill_editor.activateWindow()
+
+    # === 自動填入技能名稱 ===
+    if app_instance and hasattr(app_instance, "skill_box"):
+        try:
+            skill_name = app_instance.skill_box.currentText().strip()
+            if skill_name:
+                skill_editor.search_box.setText(skill_name)
+                skill_editor.filter_names(skill_name)
+        except Exception as e:
+            print(f"[open_skill_editor] 自動填入技能名稱失敗：{e}")
 
 
 def parse_lua_effects_with_variables(
@@ -2164,7 +2517,7 @@ class ItemSearchApp(QWidget):
                 #print("[DEBUG]觸發更改技能欄為 Special_Calculation")
 
         # 同步更新 UI
-        #self.skill_formula_input.setText(final_formula)
+        self.skill_formula_input.setText(final_formula)
 
         # [3] 最終使用使用者輸入（如果手動改了）
         user_input_formula = self.skill_formula_input.text().strip()
@@ -2204,7 +2557,12 @@ class ItemSearchApp(QWidget):
 
         # === [4] 主段傷害計算（含多段與 bonus 加值設定）
         repeat_count = self.skill_hits_input.text()
-        bonus_add = float(skill_row["bonus_add"]) if pd.notna(skill_row.get("bonus_add")) else 0
+        bonus_add_raw = skill_row.get("bonus_add", "")
+        if pd.isna(bonus_add_raw) or str(bonus_add_raw).strip() == "":
+            bonus_add = 0
+        else:
+            bonus_add = str(bonus_add_raw).strip()
+
         bonus_step = float(skill_row["bonus_step"]) if pd.notna(skill_row.get("bonus_step")) else 0
         decay_hits = int(skill_row["decay_hits"]) if pd.notna(skill_row.get("decay_hits")) else 0  # ✅ 補這段
         combo_element = int(skill_row["combo_elementg"]) if pd.notna(skill_row.get("combo_elementg")) else 0
@@ -2224,12 +2582,53 @@ class ItemSearchApp(QWidget):
             symbols_dict = {k: Symbol(k) for k in allowed_vars}
 
             for i in range(repeat_count):
-                added_value = bonus_add + i * bonus_step
-                full_formula = f"({formula}) + {added_value}" if added_value else formula
+                add_expr = (str(bonus_add).strip() if bonus_add not in [None, "nan"] else "")
+                step_expr = (str(bonus_step).strip() if bonus_step not in [None, "nan"] else "")
+
+                # 嘗試解析 step
+                try:
+                    step_val = float(step_expr) if step_expr else 0.0
+                except ValueError:
+                    step_val = 0.0
+
+                # === 如果沒有 decay 或沒有加成輸入，保持原公式 ===
+                if repeat_count <= 1 and not add_expr and not step_expr:
+                    full_formula = formula
+                else:
+                    if add_expr.startswith('*'):
+                        # === 乘法模式 ===
+                        try:
+                            base_mult = float(add_expr[1:] or 1)
+                        except ValueError:
+                            base_mult = 1.0
+                        current_mult = base_mult + step_val * i
+                        full_formula = f"({formula}) * {current_mult}"
+
+                    elif add_expr or step_expr:
+                        # === 加減模式 ===
+                        try:
+                            base_add = float(add_expr or 0)
+                        except ValueError:
+                            base_add = 0.0
+                        current_add = base_add + step_val * i
+                        if current_add == 0:
+                            full_formula = f"{formula}"  # 不顯示 +0
+                        else:
+                            sign = '+' if current_add > 0 else ''
+                            full_formula = f"({formula}) {sign} {current_add}"
+                    else:
+                        # 完全沒輸入加成
+                        full_formula = formula
+
+                # === 套用替換函式 ===
                 full_formula = replace_gsklv_calls(full_formula)
                 full_formula = replace_custom_calls(full_formula)
+
                 print(f"轉換後的公式：{full_formula}")
                 bottom_result.append(f"{pad_label('技能公式:')}[{i+1}/{repeat_count}] {full_formula}")
+
+
+
 
                 try:
                     expr = sympify(full_formula, locals=symbols_dict)
@@ -2523,10 +2922,10 @@ class ItemSearchApp(QWidget):
 
         # ✅ 加上 decay_hits 顯示處理
         decay_hits = int(skill_row["decay_hits"]) if pd.notna(skill_row.get("decay_hits")) else 0
-        print(f"遞減次數：{decay_hits}")
+        print(f"遞增/減次數：{decay_hits}")
         if decay_hits > 1:
             avg_damage = int(all_total_damage / decay_hits)
-            result.append(f"遞減段數: {decay_hits} 段")
+            result.append(f"遞增/減段數: {decay_hits} 段")
             result.append(f"平均每段傷害: {avg_damage:,}")
             #result.append(f"總傷害:   {avg_damage * decay_hits:,}")
 
@@ -5345,6 +5744,15 @@ class ItemSearchApp(QWidget):
         self.skill_filter_input.setPlaceholderText("技能過濾")
         self.skill_filter_input.setFixedWidth(80)
         skill_select_layout_top.addWidget(self.skill_filter_input)
+
+        # 🔹 清空按鈕
+        self.clear_filter_button = QPushButton("清空")
+        self.clear_filter_button.setFixedWidth(50)
+        self.clear_filter_button.setToolTip("清空過濾")
+        self.clear_filter_button.clicked.connect(self.skill_filter_input.clear)
+        skill_select_layout_top.addWidget(self.clear_filter_button)
+
+        # 綁定過濾事件
         self.skill_filter_input.textChanged.connect(filter_skills)
         
 
@@ -5468,12 +5876,14 @@ class ItemSearchApp(QWidget):
         self.compare_button.clicked.connect(self.compare_with_base)
         button_row.addWidget(self.compare_button)
         
-        self.reskill_map_button = QPushButton("重新載入技能表")
-        self.reskill_map_button.clicked.connect(load_skill_map)
-        self.reskill_map_button.clicked.connect(filter_skills)
+        # self.reskill_map_button = QPushButton("重新載入技能表")
+        # self.reskill_map_button.clicked.connect(load_skill_map)
+        # self.reskill_map_button.clicked.connect(filter_skills)
         
-        button_row.addWidget(self.reskill_map_button)
-
+        # button_row.addWidget(self.reskill_map_button)
+        self.skillEditor_button = QPushButton("編輯技能")
+        self.skillEditor_button.clicked.connect(lambda: open_skill_editor(self))
+        button_row.addWidget(self.skillEditor_button)
 
 
         layout.addLayout(button_row)

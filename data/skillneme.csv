@@ -734,8 +734,8 @@
 2211,WL_CRIMSONROCK,碧血隕石,magic,5,(700+Sklv*600)*BaseLv/100,3,-7,,,,,,,,,,
 2212,WL_HELLINFERNO,地獄火焰,magic,5,(Sklv*400)*BaseLv/100,3,1,,(Sklv*600)*BaseLv/100,7,-3,,,,,,
 2213,WL_COMET,毀滅慧星,magic,5,(3000+Sklv*600)*BaseLv/100,0,-10,,,,,,,,,,
-2214,WL_CHAINLIGHTNING,連鎖電擊,magic,5,(500+Sklv*100)*BaseLv/100,4,4,,,,,,,,4,800,"	-100"
-2215,WL_CHAINLIGHTNING_ATK,連鎖電擊,magic,,(500+Sklv*100)*BaseLv/100,4,4,,,,,,,,4,800,"	-100"
+2214,WL_CHAINLIGHTNING,連鎖電擊,magic,5,(500+Sklv*100)*BaseLv/100,4,4,,,,,,,,4,800,-100
+2215,WL_CHAINLIGHTNING_ATK,連鎖電擊,magic,,(500+Sklv*100)*BaseLv/100,4,4,,,,,,,,4,800,-100
 2216,WL_EARTHSTRAIN,地牛翻身,magic,5,(1000+Sklv*600)*BaseLv/100,2,-10,,,,,,,,,,
 2217,WL_TETRAVORTEX,屬性漩渦,,,,0,0,,,,,,,,,,
 2222,WL_SUMMONFB,召喚火焰球,,,,0,0,,,,,,,,,,
@@ -1218,7 +1218,7 @@
 5331,WH_DEEPBLINDTRAP,深盲陷阱,,,,0,0,,,,,,,,,,
 5332,WH_SOLIDTRAP,磐石陷阱,,,,0,0,,,,,,,,,,
 5333,WH_SWIFTTRAP,急速陷阱,,,,0,0,,,,,,,,,,
-5334,WH_CRESCIVE_BOLT,漸進狙擊,physical,10,(400+900*Sklv+total_CON*10)*1.3*(BaseLv/100),0,1,0.5,,,,,,,,,
+5334,WH_CRESCIVE_BOLT,漸進狙擊,physical,10,(400+900*Sklv+total_CON*10)*(BaseLv/100),0,4,0.5,,,,,,,4,*1,0.1
 5335,WH_FLAMETRAP,火焰陷阱,,,,0,0,,,,,,,,,,
 5349,TR_STAGE_MANNER,舞台禮儀,,,,0,0,,,,,,,,,,
 5350,TR_RETROSPECTION,美聲回顧,,,,0,0,,,,,,,,,,
@@ -1281,13 +1281,13 @@
 5377,EM_SUMMON_ELEMENTAL_PROCELLA,召喚元素:普羅賽拉,,,,0,0,,,,,,,,,,
 5378,EM_SUMMON_ELEMENTAL_TERREMOTUS,召喚元素:泰雷莫圖斯,,,,0,0,,,,,,,,,,
 5379,EM_SUMMON_ELEMENTAL_SERPENS,召喚元素:塞爾彭斯,,,,0,0,,,,,,,,,,
-5380,EM_ELEMENTAL_BUSTER,元素破壞,magic,5,(500+Sklv*2200+total_SPL*10)*BaseLv/100,0,10,,,,,(500+Sklv*2350+total_SPL*10)*BaseLv/100,"0,9",,,,
-5381,EM_ELEMENTAL_VEIL,元素天幕,,,,0,0,,,,,,,,,,
-5389,EM_ELEMENTAL_BUSTER_FIRE,元素破壞,,,,0,0,,,,,,,,,,
-5390,EM_ELEMENTAL_BUSTER_WATER,元素破壞,,,,0,0,,,,,,,,,,
-5391,EM_ELEMENTAL_BUSTER_WIND,元素破壞,,,,0,0,,,,,,,,,,
-5392,EM_ELEMENTAL_BUSTER_GROUND,元素破壞,,,,0,0,,,,,,,,,,
-5393,EM_ELEMENTAL_BUSTER_POISON,元素破壞,,,,0,0,,,,,,,,,,
+5380,EM_ELEMENTAL_BUSTER,元素破壞,magic,5,(500+Sklv*2200+total_SPL*10)*BaseLv/100,1,1,,,,,(500+Sklv*2350+total_SPL*10)*BaseLv/100,"0,9",,,,
+5381,EM_ELEMENTAL_VEIL,元素天幕,,,,,,,,,,,,,,,
+5389,EM_ELEMENTAL_BUSTER_FIRE,元素破壞(火),magic,5,(500+Sklv*2200+total_SPL*10)*BaseLv/100,3,1,,,,,(500+Sklv*2350+total_SPL*10)*BaseLv/100,"0,9",,,,
+5390,EM_ELEMENTAL_BUSTER_WATER,元素破壞(水),magic,5,(500+Sklv*2200+total_SPL*10)*BaseLv/100,1,1,,,,,(500+Sklv*2350+total_SPL*10)*BaseLv/100,"0,9",,,,
+5391,EM_ELEMENTAL_BUSTER_WIND,元素破壞(風),magic,5,(500+Sklv*2200+total_SPL*10)*BaseLv/100,4,1,,,,,(500+Sklv*2350+total_SPL*10)*BaseLv/100,"0,9",,,,
+5392,EM_ELEMENTAL_BUSTER_GROUND,元素破壞(地),magic,5,(500+Sklv*2200+total_SPL*10)*BaseLv/100,2,1,,,,,(500+Sklv*2350+total_SPL*10)*BaseLv/100,"0,9",,,,
+5393,EM_ELEMENTAL_BUSTER_POISON,元素破壞(毒),magic,5,(500+Sklv*2200+total_SPL*10)*BaseLv/100,5,1,,,,,(500+Sklv*2350+total_SPL*10)*BaseLv/100,"0,9",,,,
 5401,NW_P_F_I,P.F.I,,,,0,0,,,,,,,,,,
 5402,NW_GRENADE_MASTERY,榴彈精通,,,,0,0,,,,,,,,,,
 5403,NW_INTENSIVE_AIM,專注瞄準,,,,0,0,,,,,,,,,,
