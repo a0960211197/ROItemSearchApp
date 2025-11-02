@@ -1110,6 +1110,12 @@ def parse_lua_effects_with_variables(
         # 處理 if 條件判斷
         if_match = re.match(r"if\s+(.+?)\s+then", line)
         if if_match:
+            if indent_stack and not all(indent_stack):
+                # 有任一父層不成立，這層就直接 append False
+                indent_stack.append(False)
+                condition_met = False
+                continue
+
             expr = if_match.group(1)
             expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
@@ -1636,6 +1642,14 @@ def parse_lua_effects_with_variables(
             value_expr = MasteryATK_dmg.group(1)
             value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
             results.append(f"修煉ATK +{value_expr}")
+            continue
+
+        #誘導攻擊機率AddGuideAttack(value)
+        guide_attack = re.match(r"AddGuideAttack\(\s*(.+?)\s*\)", line)
+        if guide_attack and condition_met:
+            value_expr = guide_attack.group(1)
+            value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
+            results.append(f"誘導攻擊機率 +{value_expr}%")
             continue
 
         # AddMeleeAttackDamage(1, value)
