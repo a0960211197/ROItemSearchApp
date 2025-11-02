@@ -909,7 +909,7 @@ class CSVEditor(QMainWindow):
 
 
 def open_skill_editor(app_instance=None):
-    global skill_editor  # 🔹 告訴 Python 使用全域變數 skill_editor
+    global skill_editor  
     """
     開啟技能編輯器。
     若主程式有 skill_box，會自動帶入名稱；
@@ -968,7 +968,8 @@ def parse_lua_effects_with_variables(
     def safe_eval_expr(expr, variables, get_values, refine_inputs, grade):
         expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
         expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
-        expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
+        expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)       
+        expr = re.sub(r"GetEquipArmorLv\((\d+)\)",lambda m: str(global_armor_level_map.get(int(m.group(1)), 0)),expr) # 防具等級GetEquipArmorLv(數字部位)
 
         # 將變數名稱替換成實際數值
         for v in sorted(variables.keys(), key=lambda x: -len(x)):
@@ -1105,24 +1106,6 @@ def parse_lua_effects_with_variables(
 
 
 
-        # 1. EnableSkill(skill_id, level)
-        register_function("EnableSkill", "可使用技能", [
-            {"name": "技能", "map": "skill_map"},
-            {"name": "等級", "type": "value"}
-        ])
-        enable_skill = re.match(r"EnableSkill\((\d+),\s*(\d+)\)", line)
-        if enable_skill and condition_met:
-            skill_id, level = enable_skill.groups()
-            skill_id = int(skill_id)
-            level = int(level)
-            skill_name = skill_map.get(skill_id, f"技能ID {skill_id}")
-            results.append(f"可使用【{skill_name}】Lv.{level}")
-            # ➕ 記錄技能等級
-            enabled_skill_levels[skill_id] = level
-            continue
-
-        # 紀錄目前是否已有 if/elseif 成立（for this level）
-        skip_branch = False
 
         # 處理 if 條件判斷
         if_match = re.match(r"if\s+(.+?)\s+then", line)
@@ -1131,6 +1114,7 @@ def parse_lua_effects_with_variables(
             expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
+            
             for v in sorted(variables.keys(), key=lambda x: -len(x)):
                 expr = re.sub(rf'\b{re.escape(v)}\b', str(variables[v]), expr)
                 
@@ -1188,6 +1172,8 @@ def parse_lua_effects_with_variables(
                 indent_stack.pop()
             condition_met = all(indent_stack) if indent_stack else True
             continue
+
+
         # 新增對 temp = GetRefineLevel(...) 的處理邏輯
         refine_assign = re.match(r"(\w+)\s*=\s*GetRefineLevel\((\d+)\)", line)
         if refine_assign:
@@ -1213,6 +1199,20 @@ def parse_lua_effects_with_variables(
                 results.append(f"📌 `{var}` = {value}（GetEquipGradeLevel({slot})）")
             except:
                 results.append(f"⚠️ 無法計算 `{var}` = GetEquipGradeLevel({slot})")
+            continue
+
+        # 新增對 temp = GetEquipArmorLv(...) 的處理邏輯
+        armor_assign = re.match(r"(\w+)\s*=\s*GetEquipArmorLv\((\d+)\)", line)
+        if armor_assign:
+            var, slot = armor_assign.groups()
+            try:
+                slot_i = int(slot)
+                # 從全域表拿該部位的「防具等級」；沒設定就預設 0
+                value = global_armor_level_map.get(slot_i, 0)
+                variables[var] = value
+                results.append(f"📌 `{var}` = {value}（GetEquipArmorLv({slot})）")
+            except:
+                results.append(f"⚠️ 無法計算 `{var}` = GetEquipArmorLv({slot})")
             continue
 
 
@@ -1262,7 +1262,23 @@ def parse_lua_effects_with_variables(
                 results.append(f"⚠️ 無法計算 `{var}` = {expr}，錯誤：{e}")
             continue
             
-            
+
+        # 1. EnableSkill(skill_id, level)
+        register_function("EnableSkill", "可使用技能", [
+            {"name": "技能", "map": "skill_map"},
+            {"name": "等級", "type": "value"}
+        ])
+        enable_skill = re.match(r"EnableSkill\((\d+),\s*(\d+)\)", line)
+        if enable_skill and condition_met:
+            skill_id, level = enable_skill.groups()
+            skill_id = int(skill_id)
+            level = int(level)
+            skill_name = skill_map.get(skill_id, f"技能ID {skill_id}")
+            results.append(f"可使用【{skill_name}】Lv.{level}")
+            # ➕ 記錄技能等級
+            enabled_skill_levels[skill_id] = level
+            continue
+
 
         # AddExtParam(...)
         register_function("AddExtParam", "增加基礎能力", [{"name": "無意義", "map": "1"},{"name": "能力", "map": "effect_map"},{"name": "數值", "type": "value"}])
