@@ -446,6 +446,7 @@ equipid_mapping = {#主程式equip to ROCalculator 轉換
     "LevelMatkPercent": "LevelMatkPercent",
     "ElementalMatkPercent": "ElementalMatkPercent",
     "ElementalMagicPercent": "ElementalMagicPercent",
+    "target_monsterMDamage": "MonsterMatkPercent",
 
     #物理
     "PATK": "PATK",
@@ -459,7 +460,7 @@ equipid_mapping = {#主程式equip to ROCalculator 轉換
     "Damage_CRI": "CriDamagePercent",
     "MeleeAttackDamage": "MeleeDamagePercent",
     "RangeAttackDamage": "RangedDamagePercent",
-    
+    "target_monsterDamage": "MonsterAtkPercent",
 }
 
 status_mapping = {#主程式status to ROCalculator 轉換
@@ -968,7 +969,7 @@ def parse_lua_effects_with_variables(
     def safe_eval_expr(expr, variables, get_values, refine_inputs, grade):
         expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
         expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
-        expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)       
+        expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
         expr = re.sub(r"GetEquipArmorLv\((\d+)\)",lambda m: str(global_armor_level_map.get(int(m.group(1)), 0)),expr) # 防具等級GetEquipArmorLv(數字部位)
 
         # 將變數名稱替換成實際數值
@@ -1630,7 +1631,17 @@ def parse_lua_effects_with_variables(
             results.append(f"無視 {race_name} 的魔法防禦 {val}%")
             continue
             
-            
+
+        register_function("MonsterMAtkPercent", "增加特定魔物魔法傷害", [
+            {"name": "數值%", "type": "value"}
+        ])
+        # 特定魔物物理增傷
+        mon_m_atk = re.match(r"MonsterMAtkPercent\(\s*(.+)\s*\)", line)
+        if mon_m_atk and condition_met:
+            value_expr = mon_m_atk.group(1)
+            value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
+            results.append(f"特定魔物魔法增傷 +{value_expr}%")
+            continue
             
             
 #===========以上魔法判斷
@@ -1829,7 +1840,17 @@ def parse_lua_effects_with_variables(
             results.append(f"對 {class_name} 階級的物理傷害 {sign}{val}%")
             continue
 
-            
+
+        # 特定魔物物理增傷
+        register_function("MonsterAtkPercent", "增加特定魔物物理傷害", [
+            {"name": "數值%", "type": "value"}
+        ])       
+        mon_atk = re.match(r"MonsterAtkPercent\(\s*(.+)\s*\)", line)
+        if mon_atk and condition_met:
+            value_expr = mon_atk.group(1)
+            value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
+            results.append(f"特定魔物物理增傷 +{value_expr}%")
+            continue
 
 #==============以上物理判斷
 
@@ -2075,7 +2096,7 @@ class ItemSearchApp(QWidget):
         class_key = self.class_box.currentData()
         element_lv_key = self.element_lv_input.text() or 1
         user_element_key = self.attack_element_box.currentData()
-        monsterDamage_key = self.monsterDamage_input.text() or "0"
+        #monsterDamage_key = self.monsterDamage_input.text() or "0"#指定魔物增傷UI
         # 整數輸入值（注意空字串要預設為 0）
         d_ef = self.def_input.text() or "0"
         defc = self.defc_input.text() or "0"
@@ -2084,7 +2105,7 @@ class ItemSearchApp(QWidget):
         mdefc = self.mdefc_input.text() or "0"
         mres = self.mres_input.text() or "0"
         # 組合新的 state_key
-        state_key = f"{skill_key}|{skill_lv}|{current_text}|{equip_state}|{special_state}|{size_key}|{element_key}|{race_key}|{class_key}|{d_ef}|{defc}|{res}|{mdef}|{mdefc}|{mres}|{element_lv_key}|{user_element_key}|{monsterDamage_key}"
+        state_key = f"{skill_key}|{skill_lv}|{current_text}|{equip_state}|{special_state}|{size_key}|{element_key}|{race_key}|{class_key}|{d_ef}|{defc}|{res}|{mdef}|{mdefc}|{mres}|{element_lv_key}|{user_element_key}"
 
 
         if getattr(self, "_last_calc_state", None) == state_key:
@@ -2198,7 +2219,8 @@ class ItemSearchApp(QWidget):
         globals()["SizeAtkPercent"] = get_effect_multiplier('D_size', target_size)#物理體型
         globals()["LevelAtkPercent"] = get_effect_multiplier('D_class', target_class)#物理階級
         globals()["ElementalAtkPercent"] = get_effect_multiplier('D_element', target_element) + get_effect_multiplier('D_element', 10)#物理屬性敵人
-        
+        globals()["target_monsterDamage"] = sum(val for val, _ in effect_dict.get((f"特定魔物物理增傷", "%"), []))
+        globals()["target_monsterMDamage"] = sum(val for val, _ in effect_dict.get((f"特定魔物魔法增傷", "%"), []))
 
         
         
@@ -2209,10 +2231,12 @@ class ItemSearchApp(QWidget):
         except ValueError:
             target_element_lv = 1
         #print(f"目標屬性等級:{target_element_lv}")
+        '''指定魔物增傷ui
         try:
             target_monsterDamage = int(self.monsterDamage_input.text() or 0)
         except ValueError:
             target_monsterDamage = 0
+        '''
         try:
             target_def = int(self.def_input.text() or 0)
         except ValueError:
@@ -2691,7 +2715,7 @@ class ItemSearchApp(QWidget):
                             #階級
                             (get_effect_multiplier('MD_class', target_class),1),
                             #特定魔物增傷
-                            (target_monsterDamage,1),
+                            (target_monsterMDamage,1),
                             #smatk 
                             (SMATK_total,1),
                             #技能倍率
@@ -2719,7 +2743,7 @@ class ItemSearchApp(QWidget):
                         ATK_percent_sign = int(ATKC_Mweapon_ALL * (ATK_percent/100))
                         final_damage_1 = apply_stepwise_percent_mode(
                             #初始值 後武器ATK
-                            ATKC_Mweapon_ALL,                            
+                            ATKC_Mweapon_ALL,
                             #種族
                             (get_effect_multiplier('D_Race', target_race) + get_effect_multiplier('D_Race', 9999),1),
                             #體型
@@ -2728,6 +2752,8 @@ class ItemSearchApp(QWidget):
                             (get_effect_multiplier('D_element', target_element) + get_effect_multiplier('D_element', 10),1),
                             #階級
                             (get_effect_multiplier('D_class', target_class),1),
+                            #特定魔物增傷
+                            (target_monsterDamage,1),
                         )
                         
                         #後總ATK
@@ -2983,7 +3009,7 @@ class ItemSearchApp(QWidget):
             result.append(f"{pad_label('屬性魔法:')}{round(get_effect_multiplier('MD_Damage', User_attack_element) + get_effect_multiplier('MD_Damage', 10))}%")
             result.append(f"{pad_label('魔法種族:')}{round(get_effect_multiplier('MD_Race', target_race) + get_effect_multiplier('MD_Race', 9999))}%")
             result.append(f"{pad_label('魔法階級:')}{round(get_effect_multiplier('MD_class', target_class))}%")
-            result.append(f"{pad_label('魔物增傷:')}{round(target_monsterDamage)}%")
+            result.append(f"{pad_label('魔物增傷:')}{round(target_monsterMDamage)}%")
             result.append(f"{pad_label('S.MATK:')}{round(SMATK_total)}")
             result.append(f"{pad_label('技能倍率:')}{results[0]['skill_result']}%")
             result.append(f"{pad_label('屬性倍率:')}{get_damage_multiplier(User_attack_element, target_element, target_element_lv)}%")
@@ -3020,6 +3046,7 @@ class ItemSearchApp(QWidget):
             result.append(f"{pad_label('物理體型:')}{round(get_effect_multiplier('D_size', target_size))}%")
             result.append(f"{pad_label('物理種族:')}{round(get_effect_multiplier('D_Race', target_race) + get_effect_multiplier('D_Race', 9999))}%")
             result.append(f"{pad_label('物理階級:')}{round(get_effect_multiplier('D_class', target_class))}%")
+            result.append(f"{pad_label('魔物增傷:')}{round(target_monsterDamage)}%")
             result.append(f"{pad_label('P.ATK:')}{round(patk_total)}")
             result.append(f"{pad_label('物理屬性敵人:')}{round(get_effect_multiplier('D_element', target_element) + get_effect_multiplier('D_element', 10))}%")
             result.append(f"{pad_label('爆傷:')}{round(Damage_CRI)}%")
@@ -6005,7 +6032,7 @@ class ItemSearchApp(QWidget):
         element_lv_input_layout.addWidget(element_lv_input_label)
         element_lv_input_layout.addWidget(self.element_lv_input)
         target_layout.addLayout(element_lv_input_layout)
-        
+        '''
         #指定魔物增傷
         monsterDamage_layout = QVBoxLayout()
         self.monsterDamage_label = QLabel("魔物增傷")
@@ -6017,7 +6044,7 @@ class ItemSearchApp(QWidget):
         target_layout.addLayout(monsterDamage_layout)
         self.monsterDamage_label.setVisible(False)#UI暫時隱藏
         self.monsterDamage_input.setVisible(False)
-
+        '''
         # 同樣方式套用在 race_map（假設你也要限制）
         visible_race_keys = [k for k in race_map if k <= 9]
         race_layout, self.race_box = make_combobox("種族", race_map, visible_race_keys)
@@ -6096,7 +6123,7 @@ class ItemSearchApp(QWidget):
         self.attack_element_box.currentIndexChanged.connect(self.replace_custom_calc_content)
 
         # LineEdit 的綁定（使用 editingFinished 避免每次打字都觸發）
-        self.monsterDamage_input.editingFinished.connect(self.replace_custom_calc_content)
+        #self.monsterDamage_input.editingFinished.connect(self.replace_custom_calc_content)#指定魔物增傷UI
         self.def_input.editingFinished.connect(self.replace_custom_calc_content)
         self.defc_input.editingFinished.connect(self.replace_custom_calc_content)
         self.res_input.editingFinished.connect(self.replace_custom_calc_content)
