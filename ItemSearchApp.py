@@ -483,7 +483,7 @@ status_mapping = {#主程式status to ROCalculator 轉換
 
 weapon_mapping = {#主程式weapon to ROCalculator 轉換
     "weapon_codes": ("type", "id"),
-    "weapon_Level": ("level", "id"),
+    "weaponR_Level": ("level", "id"),
     "weaponGradeR": ("grade", "id"),
     "ATK_Mweapon": "ATK",
     "MATK_Mweapon": "MATK",
@@ -657,11 +657,21 @@ class CSVEditor(QMainWindow):
         # === 欄位編輯區 ===
         self.form = QFormLayout()
         main_layout.addLayout(self.form)
+        # 建立一個橫向排版
+        button_layout = QHBoxLayout()
 
-        # === 儲存按鈕 ===
+        # 儲存但不關閉
+        self.save_only_button = QPushButton("📝 只儲存變更")
+        self.save_only_button.clicked.connect(lambda: self.save_changes(close_after=False))
+        button_layout.addWidget(self.save_only_button)
+
+        # 儲存並關閉
         self.save_button = QPushButton("💾 儲存變更並關閉")
-        self.save_button.clicked.connect(self.save_changes)
-        main_layout.addWidget(self.save_button, alignment=Qt.AlignRight)
+        self.save_button.clicked.connect(lambda: self.save_changes(close_after=True))
+        button_layout.addWidget(self.save_button)
+
+        # 加到主layout（假設main_layout是垂直排版 QVBoxLayout）
+        main_layout.addLayout(button_layout)
 
         # === 初始化資料 ===
         self.all_rows = []     # 存所有行
@@ -839,8 +849,7 @@ class CSVEditor(QMainWindow):
                     widget.setText(value)
 
 
-    def save_changes(self):
-        """儲存修改回 CSV"""
+    def save_changes(self, close_after=True):
         index = self.name_combo.currentIndex()
         if index < 0 or index >= len(self.filtered_rows):
             QMessageBox.warning(self, "錯誤", "請先選擇一個 Name")
@@ -852,42 +861,32 @@ class CSVEditor(QMainWindow):
                 continue
             if header in self.field_edits:
                 widget = self.field_edits[header]
-
-                # 針對 QLineEdit 檢查唯讀，QComboBox 不檢查
                 if isinstance(widget, QLineEdit) and widget.isReadOnly():
                     continue
-
-                # 取得值
                 if isinstance(widget, QComboBox):
                     new_value = widget.currentText()
                 else:
                     new_value = widget.text()
-
-                # 寫回資料列
                 if i < len(row):
                     row[i] = new_value
                 else:
                     row.append(new_value)
-
-
-        # 更新 self.data
         self.data = [
             row if row is not self.filtered_rows[index] else self.filtered_rows[index]
             for row in self.data
         ]
-
-        # 寫回 CSV
         try:
             with open(self.file_path, "w", newline='', encoding='utf-8-sig') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(self.headers)
                 writer.writerows(self.data)
-                load_skill_map()#重新載入技能列表
+                load_skill_map()  # 重新載入技能列表
             #QMessageBox.information(self, "成功", "已儲存修改！")
-            self.close()
-
+            if close_after:
+                self.close()
         except Exception as e:
             QMessageBox.critical(self, "錯誤", f"儲存失敗：{e}")
+
 
     def closeEvent(self, event):
         """當視窗關閉時，先清空主畫面的過濾欄，再回寫目前搜尋字。"""
@@ -2180,15 +2179,18 @@ class ItemSearchApp(QWidget):
         #武器MATK
         globals()["MATK_Mweapon"] = sum(val for val, _ in effect_dict.get(("武器MATK", ""), []))
         #武器等級
-        globals()["weapon_Level"] = sum(val for val, _ in effect_dict.get(("武器等級", ""), []))
+        #globals()["weapon_Level"] = sum(val for val, _ in effect_dict.get(("武器等級", ""), []))#捨棄ui資料，改成map資料
+        globals()["weaponR_Level"] = global_weapon_level_map.get(4, 0)#主手
+        globals()["weaponL_Level"] = global_weapon_level_map.get(3, 0)#副手
+        print(f"武器等級R{weaponR_Level} L{weaponL_Level}")
         #箭矢彈藥ATK
         globals()["ammoATK"] = sum(val for val, _ in effect_dict.get(("箭矢/彈藥ATK", ""), []))
         #武器精煉R右L左
         globals()["weaponRefineR"] = int(self.refine_inputs_ui["右手(武器)"]["refine"].text())
-        weaponRefineL = int(self.refine_inputs_ui["左手(盾牌)"]["refine"].text())
+        globals()["weaponRefineL"] = int(self.refine_inputs_ui["左手(盾牌)"]["refine"].text())
         #武器階級R右L左
         globals()["weaponGradeR"] = int(self.refine_inputs_ui["右手(武器)"]["grade"].currentIndex())
-        weaponGradeL = int(self.refine_inputs_ui["左手(盾牌)"]["grade"].currentIndex())
+        globals()["weaponGradeL"] = int(self.refine_inputs_ui["左手(盾牌)"]["grade"].currentIndex())
         #print(f"{weaponRefineR} {weaponRefineL} {weaponGradeR} {weaponGradeL}")
         globals()["PATK"] = sum(val for val, _ in effect_dict.get(("P.ATK", ""), []))
         globals()["SMATK"] = sum(val for val, _ in effect_dict.get(("S.MATK", ""), []))
@@ -2415,17 +2417,19 @@ class ItemSearchApp(QWidget):
         #==========================精煉計算=========================
         #武器ATK精煉計算
         patk_refine_total = 0
-        atk_refine_total, patk_refine_total = self.calc_weapon_refine_atk(weapon_Level, weaponRefineR, weaponGradeR)
+        atk_refine_total, patk_refine_total = self.calc_weapon_refine_atk(weaponR_Level, weaponRefineR, weaponGradeR)
+        atk_refine_total_L, patk_refine_total_L = self.calc_weapon_refine_atk(weaponL_Level, weaponRefineL, weaponGradeL)#atk_refine_total_L 副手不計算ATK 只計算PATK
         #PATK(裝備+精煉+特性素質)
-        patk_total = PATK + int(total_POW/3) + int(total_CON/5) + patk_refine_total
+        patk_total = PATK + int(total_POW/3) + int(total_CON/5) + patk_refine_total + patk_refine_total_L
         #武器MATK精煉計算
         smatk_refine_total = 0
-        matk_refine_total, smatk_refine_total = self.calc_weapon_refine_matk(weapon_Level, weaponRefineR, weaponGradeR)
+        matk_refine_total, smatk_refine_total = self.calc_weapon_refine_matk(weaponR_Level, weaponRefineR, weaponGradeR)
+        matk_refine_total_L, smatk_refine_total_L = self.calc_weapon_refine_matk(weaponL_Level, weaponRefineL, weaponGradeL)#matk_refine_total_L 副手不計算MATK 只計算SMATK
         #print(f"精煉加成 MATK: {matk_refine_total}")
         #print(f"精煉加成 S.MATK: {smatk_refine_total}")
         #============================魔法各增傷計算區============================
         #SMATK(裝備+精煉+特性素質)
-        SMATK_total = SMATK + int(total_SPL/3) + int(total_CON/5) + smatk_refine_total
+        SMATK_total = SMATK + int(total_SPL/3) + int(total_CON/5) + smatk_refine_total + smatk_refine_total_L
         
         
         def apply_stepwise_percent_mode(base, *bonuses_with_mode):
@@ -2489,15 +2493,14 @@ class ItemSearchApp(QWidget):
         #後ATK (只給面板顯示不參與計算)
         AKTC = ATK_Mweapon + ATK_armor + atk_refine_total
         #C.RATE
-        total_CRATE = CRATE + int(total_CRT/3)   
-        print(f"weapon_Level:{weapon_Level}")      
+        total_CRATE = CRATE + int(total_CRT/3)
         if weapon_class in (11,13,14,17,18,19,20,21):#DEX系
             #武器基礎ATK(dex)
-            BasicsWeaponATK = ATK_Mweapon * (1+ (total_DEX/200) + (weapon_Level*0.05))
+            BasicsWeaponATK = ATK_Mweapon * (1+ (total_DEX/200) + (weaponR_Level*0.05))
             
         else:#STR系
             #武器基礎ATK(STR)
-            BasicsWeaponATK = ATK_Mweapon * (1+ (total_STR/200) + (weapon_Level*0.05))
+            BasicsWeaponATK = ATK_Mweapon * (1+ (total_STR/200) + (weaponR_Level*0.05))
         
         print(f"BasicsWeaponATK:{BasicsWeaponATK}")
         #精煉武器ATK
@@ -2535,7 +2538,7 @@ class ItemSearchApp(QWidget):
         #後MATK
         MATKC = MATK_armor + MATK_Mweapon + matk_refine_total
         #武器MATK
-        MATK_Mweapon_ALL = MATKF + ((matk_refine_total + MATK_Mweapon) * (1+(weapon_Level*0.1)))
+        MATK_Mweapon_ALL = MATKF + ((matk_refine_total + MATK_Mweapon) * (1+(weaponR_Level*0.1)))
         #print(f"武器MATK:{MATK_Mweapon_ALL}")
         #裝備MATK+魔力增幅+武器MATK
         armorMATK_MAGICPOWER = int(MATK_Mweapon_ALL * (1+(SKILL_HW_MAGICPOWER*0.05)) + MATK_armor)
