@@ -119,6 +119,7 @@ global_weapon_level_map = {}#武器等級
 global_armor_level_map = {}#防具等級
 global_weapon_type_map = {}#武器類型
 function_defs = {}#公式變數字典
+slot_item_id_map = {}#部位裝備的ID
 def register_function(name, desc, args):
     if name in function_defs:
         return  # 已經有了就跳過
@@ -970,8 +971,7 @@ def parse_lua_effects_with_variables(
         expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
         expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
         expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
-        expr = re.sub(r"GetEquipArmorLv\((\d+)\)",lambda m: str(global_armor_level_map.get(int(m.group(1)), 0)),expr) # 防具等級GetEquipArmorLv(數字部位)
-
+        expr = re.sub(r"GetEquipArmorLv\((\d+)\)",lambda m: str(global_armor_level_map.get(int(m.group(1)), 0)),expr) # 防具等級GetEquipArmorLv(數字部位)        
         # 將變數名稱替換成實際數值
         for v in sorted(variables.keys(), key=lambda x: -len(x)):
             expr = re.sub(rf'\b{re.escape(v)}\b', str(variables[v]), expr)
@@ -1121,6 +1121,7 @@ def parse_lua_effects_with_variables(
             expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
+            expr = re.sub(r"GetItemIDLocation\((\d+)\)",lambda m: str(slot_item_id_map.get(int(m.group(1)), 0)),expr)#裝備的item_ID
             
             for v in sorted(variables.keys(), key=lambda x: -len(x)):
                 expr = re.sub(rf'\b{re.escape(v)}\b', str(variables[v]), expr)
@@ -1151,7 +1152,8 @@ def parse_lua_effects_with_variables(
             expr = elseif_match.group(1)
             expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
-            expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
+            expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)           
+            expr = re.sub(r"GetItemIDLocation\((\d+)\)",lambda m: str(slot_item_id_map.get(int(m.group(1)), 0)),expr)#裝備的item_ID
             for v in sorted(variables.keys(), key=lambda x: -len(x)):
                 expr = re.sub(rf'\b{re.escape(v)}\b', str(variables[v]), expr)
             try:
@@ -1180,6 +1182,19 @@ def parse_lua_effects_with_variables(
             condition_met = all(indent_stack) if indent_stack else True
             continue
 
+        # 支援多個 GetRefineLevel 連加 (先處理多段再處理單段)
+        multi_refine_assign = re.match(
+            r"(\w+)\s*=\s*GetRefineLevel\((\d+)\)((?:\s*\+\s*GetRefineLevel\((\d+)\))+)", line)
+        if multi_refine_assign:
+            var = multi_refine_assign.group(1)
+            slots = re.findall(r"GetRefineLevel\((\d+)\)", line)
+            try:
+                value = sum([refine_inputs.get(int(slot), 0) for slot in slots])
+                variables[var] = value
+                results.append(f"📌 `{var}` = {value}（GetRefineLevel({'+'.join(slots)})）")
+            except Exception as e:
+                results.append(f"⚠️ 無法計算 `{var}` = GetRefineLevel({' + '.join(slots)})，錯誤：{e}")
+            continue
 
         # 新增對 temp = GetRefineLevel(...) 的處理邏輯
         refine_assign = re.match(r"(\w+)\s*=\s*GetRefineLevel\((\d+)\)", line)
@@ -1193,6 +1208,8 @@ def parse_lua_effects_with_variables(
                 results.append(f"⚠️ 無法計算 `{var}` = GetRefineLevel({slot})")
             continue
             
+
+
         # 新增對 temp = GetEquipGradeLevel(...) 的處理邏輯
         grade_assign = re.match(r"(\w+)\s*=\s*GetEquipGradeLevel\((\d+)\)", line)
         if grade_assign:
@@ -1631,11 +1648,10 @@ def parse_lua_effects_with_variables(
             results.append(f"無視 {race_name} 的魔法防禦 {val}%")
             continue
             
-
+        # 特定魔物魔法增傷MonsterMAtkPercent(value)
         register_function("MonsterMAtkPercent", "增加特定魔物魔法傷害", [
             {"name": "數值%", "type": "value"}
         ])
-        # 特定魔物物理增傷
         mon_m_atk = re.match(r"MonsterMAtkPercent\(\s*(.+)\s*\)", line)
         if mon_m_atk and condition_met:
             value_expr = mon_m_atk.group(1)
@@ -1841,7 +1857,7 @@ def parse_lua_effects_with_variables(
             continue
 
 
-        # 特定魔物物理增傷
+        # 特定魔物物理增傷MonsterAtkPercent(value)
         register_function("MonsterAtkPercent", "增加特定魔物物理傷害", [
             {"name": "數值%", "type": "value"}
         ])       
@@ -1869,10 +1885,6 @@ def parse_lua_effects_with_variables(
                     results.append(f"🟡line解析 無法辨識: {original_line}")
 
 
-
-
-
-
     for skill_name, total_ms in skill_delay_accum.items():
         sec = abs(total_ms) / 1000
         if total_ms < 0:
@@ -1880,21 +1892,7 @@ def parse_lua_effects_with_variables(
         else:
             results.append(f"技能【{skill_name}】冷卻時間延長 {sec:.2f} 秒")
 
-
-
-
-
-
-
-            
         # 所有邏輯都未匹配時：顯示無法辨識語句
-
-
-    
-
-
-
-
 
     def combine_effects(results):
         combined = defaultdict(int)
@@ -3972,6 +3970,10 @@ class ItemSearchApp(QWidget):
 
         effect_dict = {}
 
+        for part in self.refine_parts.values():#先清除部位 to itemid的對應
+            slot_id = part["slot"]
+            slot_item_id_map[slot_id] = 0
+
         for part_name, ui in self.refine_inputs_ui.items():
             # ▶️ 裝備主體處理
             equip_name = ui["equip"].text().strip()
@@ -3982,6 +3984,7 @@ class ItemSearchApp(QWidget):
                         block_text = self.equipment_data[item_id]
                         grade = self.input_fields[f"{part_name}_階級"].currentIndex()
                         slot_id = self.refine_parts[part_name]["slot"]
+                        slot_item_id_map[slot_id] = item_id  # 存入全域對應表
 
                         effects = parse_lua_effects_with_variables(
                             block_text,
