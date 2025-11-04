@@ -30,6 +30,20 @@
     "ArrowATK": 0,
     "Weight": 0
   },
+  "SubWeapon": {
+    "type": {
+      "id": 0
+    },
+    "level": {
+      "id": 1
+    },
+    "grade": {
+      "id": 0
+    },
+    "ATK": 0,
+    "MATK": 0,
+    "refinelevel": 0
+  },
   "Status": {
     "Level": 1,
     "JOBLevel": 1,

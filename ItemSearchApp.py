@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-
+Version = "v0.0.8-251104"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -118,6 +118,8 @@ enabled_skill_levels = {}  # 存放已啟用技能的等級
 global_weapon_level_map = {}#武器等級
 global_armor_level_map = {}#防具等級
 global_weapon_type_map = {}#武器類型
+global_weapon_atk_map = {}#武器基礎攻擊力
+global_weapon_matk_map = {}#武器基礎魔法攻擊力
 function_defs = {}#公式變數字典
 slot_item_id_map = {}#部位裝備的ID
 def register_function(name, desc, args):
@@ -491,6 +493,13 @@ weapon_mapping = {#主程式weapon to ROCalculator 轉換
     "ammoATK": "ArrowATK"
 }
 
+SubWeapon_mapping = {#主程式Subweapon to ROCalculator 轉換
+    "Subweapon_codes": ("type", "id"),
+    "weaponL_Level": ("level", "id"),
+    "weaponGradeL": ("grade", "id"),
+    "MATK_MweaponL": "MATK",
+    "weaponRefineR": "refinelevel"
+}
 
 
 TSTATUS_POINT_COSTS = [#取自ROCalculator(特性數值點術
@@ -1087,9 +1096,16 @@ def parse_lua_effects_with_variables(
 
                     # 儲存武器或防具等級
                     if stat_name == "武器等級":
-                        global_weapon_level_map[current_location_slot] = val
+                        global_weapon_level_map[current_location_slot] = val                    
                     elif stat_name == "防具等級":
                         global_armor_level_map[current_location_slot] = val
+                    elif stat_name == "武器ATK":
+                        global_weapon_atk_map[current_location_slot] = val
+                        print(f"設定武器ATK: 部位{current_location_slot} = {val}")
+                    elif stat_name == "武器MATK":
+                        global_weapon_matk_map[current_location_slot] = val
+                        print(f"設定武器MATK: 部位{current_location_slot} = {val}")
+
                         
                     # ✅ 處理武器類型（使用 map 轉換中文名稱）
                     if stat_name == "武器類型":
@@ -2072,7 +2088,7 @@ class ItemSearchApp(QWidget):
     
     def update_window_title(self):
         filename = os.path.basename(self.current_file) if self.current_file else "未命名"
-        self.setWindowTitle(f"RO物品查詢計算工具 - {filename}")
+        self.setWindowTitle(f"RO物品查詢計算工具 {Version} - {filename} ")
     
     def replace_custom_calc_content(self):
         # 特殊 CheckBox 狀態
@@ -2159,11 +2175,15 @@ class ItemSearchApp(QWidget):
         effect_dict = getattr(self, "effect_dict_raw", {})
         #呼叫處理物理,魔法增傷,無視防禦 例:(對"小型"敵人的魔法傷害 +5%)
         self.apply_all_damage_effects(effect_dict)
-        #武器類型(數字)
+        #主手武器類型(數字)
         weapon_class = global_weapon_type_map.get(4, 0)
-        #武器類型(代號)
+        #副手武器類型(數字)
+        Subweapon_class = global_weapon_type_map.get(3, 0)        
+        #主手武器類型(代號)
         globals()["weapon_codes"] = weapon_class_codes.get(weapon_class, "?")
-
+        #副手武器類型(數字)
+        globals()["Subweapon_codes"] = 0 if Subweapon_class == 0 else 2
+        #print(f"副手武器類型代號 {Subweapon_codes}")
         #裝備ATK(不含武器)
         globals()["ATK_armor"] = sum(val for val, _ in effect_dict.get(("ATK", ""), []))
         #修煉ATK
@@ -2175,9 +2195,13 @@ class ItemSearchApp(QWidget):
         #裝備MATK%
         globals()["MATK_percent"] = sum(val for val, _ in effect_dict.get(("MATK%", "%"), []))
         #武器ATK
-        globals()["ATK_Mweapon"] = sum(val for val, _ in effect_dict.get(("武器ATK", ""), []))
+        #globals()["ATK_Mweapon"] = sum(val for val, _ in effect_dict.get(("武器ATK", ""), []))#捨棄ui資料，改成map資料
+        globals()["ATK_Mweapon"] = global_weapon_atk_map.get(4, 0)#主手
+        globals()["ATK_MweaponL"] = global_weapon_atk_map.get(3, 0)#副手
         #武器MATK
-        globals()["MATK_Mweapon"] = sum(val for val, _ in effect_dict.get(("武器MATK", ""), []))
+        #globals()["MATK_Mweapon"] = sum(val for val, _ in effect_dict.get(("武器MATK", ""), []))#捨棄ui資料，改成map資料
+        globals()["MATK_Mweapon"] = global_weapon_matk_map.get(4, 0)#主手
+        globals()["MATK_MweaponL"] = global_weapon_matk_map.get(3, 0)#副手
         #武器等級
         #globals()["weapon_Level"] = sum(val for val, _ in effect_dict.get(("武器等級", ""), []))#捨棄ui資料，改成map資料
         globals()["weaponR_Level"] = global_weapon_level_map.get(4, 0)#主手
@@ -2424,7 +2448,7 @@ class ItemSearchApp(QWidget):
         #武器MATK精煉計算
         smatk_refine_total = 0
         matk_refine_total, smatk_refine_total = self.calc_weapon_refine_matk(weaponR_Level, weaponRefineR, weaponGradeR)
-        matk_refine_total_L, smatk_refine_total_L = self.calc_weapon_refine_matk(weaponL_Level, weaponRefineL, weaponGradeL)#matk_refine_total_L 副手不計算MATK 只計算SMATK
+        matk_refine_total_L, smatk_refine_total_L = self.calc_weapon_refine_matk(weaponL_Level, weaponRefineL, weaponGradeL)
         #print(f"精煉加成 MATK: {matk_refine_total}")
         #print(f"精煉加成 S.MATK: {smatk_refine_total}")
         #============================魔法各增傷計算區============================
@@ -2536,9 +2560,9 @@ class ItemSearchApp(QWidget):
         #前MATK
         MATKF = int(BaseLv/4) + int(total_INT*1.5) + int(total_DEX/5) + int(total_LUK/3) + int(total_SPL*5)
         #後MATK
-        MATKC = MATK_armor + MATK_Mweapon + matk_refine_total
+        MATKC = MATK_armor + MATK_Mweapon + MATK_MweaponL + matk_refine_total + matk_refine_total_L
         #武器MATK
-        MATK_Mweapon_ALL = MATKF + ((matk_refine_total + MATK_Mweapon) * (1+(weaponR_Level*0.1)))
+        MATK_Mweapon_ALL = MATKF + ((matk_refine_total + matk_refine_total_L + MATK_Mweapon + MATK_MweaponL) * (1+(weaponR_Level*0.1)))
         #print(f"武器MATK:{MATK_Mweapon_ALL}")
         #裝備MATK+魔力增幅+武器MATK
         armorMATK_MAGICPOWER = int(MATK_Mweapon_ALL * (1+(SKILL_HW_MAGICPOWER*0.05)) + MATK_armor)
@@ -3457,6 +3481,7 @@ class ItemSearchApp(QWidget):
         global_weapon_level_map.clear()
         global_armor_level_map.clear()
         global_weapon_type_map.clear()
+        global_weapon_matk_map.clear()
         
         
         enabled_skill_levels.clear()
@@ -3468,6 +3493,7 @@ class ItemSearchApp(QWidget):
             global_weapon_level_map[slot] = 0
             global_armor_level_map[slot] = 0
             global_weapon_type_map[slot] = 0
+            global_weapon_matk_map[slot] = 0
         #self.update_combobox()
 
         #self.display_item_info()
@@ -6315,6 +6341,32 @@ class ItemSearchApp(QWidget):
                     print(f"⚠️ 找不到變數：{var_name}（對應 Weapon[{weapon_key}]），略過。")
         else:
             print("⚠️ 模板中沒有 Weapon 區塊。")
+
+        # === 根據 SubWeapon_mapping 更新 SubWeapon ===
+        subweapon_data = new_data.get("SubWeapon", {})
+        if subweapon_data:
+            for var_name, subweapon_key in SubWeapon_mapping.items():
+                if var_name in context:
+                    new_value = context[var_name]
+
+                    # subweapon_key 可能是單層或雙層 key
+                    if isinstance(subweapon_key, tuple) and len(subweapon_key) == 2:
+                        first, second = subweapon_key
+                        if first in subweapon_data and isinstance(subweapon_data[first], dict):
+                            old_value = subweapon_data[first].get(second, None)
+                            subweapon_data[first][second] = new_value
+                            print(f"🔄 SubWeapon[{first}][{second}] 從 {old_value} → {new_value}")
+                        else:
+                            print(f"⚠️ SubWeapon 中沒有 {first} 層級，略過。")
+                    else:
+                        old_value = subweapon_data.get(subweapon_key, None)
+                        subweapon_data[subweapon_key] = new_value
+                        print(f"🔄 SubWeapon[{subweapon_key}] 從 {old_value} → {new_value}")
+                else:
+                    print(f"⚠️ 找不到變數：{var_name}（對應 SubWeapon[{subweapon_key}]），略過。")
+        else:
+            print("⚠️ 模板中沒有 SubWeapon 區塊。")
+
 
         # === 從視窗標題推斷檔名 ===
         full_title = self.windowTitle().strip() or "RO物品查詢計算工具 - 未命名"
