@@ -71,7 +71,7 @@
   },
   "Skill": {
     "id": "",
-    "Note": "此計算機未有此公式，需手動新增或選擇。"
+    "Note": "計算機未有此公式，需手動新增或重新選擇。"
   },
   "SkillOption": {
     "AttackElementalIdx": 0,

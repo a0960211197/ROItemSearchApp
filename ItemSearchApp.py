@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.0.9-251104"
+Version = "v0.0.10-251104"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -200,26 +200,26 @@ class_map = {
 
 #職業名稱跟JOB補正#ROCalculator
 job_dict = {
-    4252: {"id": "RK", "name": "盧恩龍爵", "TJobMaxPoint": [6,8,7,8,8,6,10,6,3,5,6,8]},
-    4253: {"id": "ME", "name": "機甲神匠", "TJobMaxPoint": [10,6,10,6,5,6,9,10,5,0,7,7]},
-    4254: {"id": "GX", "name": "十字影武", "TJobMaxPoint": [8,11,6,5,9,4,12,8,4,0,7,7]},
-    4255: {"id": "WL", "name": "禁咒魔導士", "TJobMaxPoint": [1,7,8,15,8,4,0,8,7,13,9,1]},
-    4256: {"id": "AB", "name": "樞機主教", "TJobMaxPoint": [6,7,7,12,7,4,8,5,5,9,4,7]},
-    4257: {"id": "RA", "name": "風鷹狩獵者", "TJobMaxPoint": [2,12,8,9,8,4,9,5,5,4,11,4]},
-    4258: {"id": "RG", "name": "帝國聖衛軍", "TJobMaxPoint": [9,3,9,10,9,3,7,11,6,7,4,3]},
-    4259: {"id": "GE", "name": "生命締造者", "TJobMaxPoint": [5,6,8,12,8,4,7,4,4,4,7,12]},
-    4260: {"id": "SC", "name": "深淵追跡者", "TJobMaxPoint": [8,9,8,6,6,6,8,8,4,7,5,6]},
-    4261: {"id": "SO", "name": "元素支配者", "TJobMaxPoint": [4,4,8,13,9,5,3,8,7,12,5,3]},
-    4262: {"id": "SU", "name": "聖裁者", "TJobMaxPoint": [10,10,6,8,8,1,11,8,5,3,5,6]},
-    4263: {"id": "MI", "name": "天籟頌者", "TJobMaxPoint": [7,7,7,9,10,3,6,7,4,6,11,4]},
-    4264: {"id": "WA", "name": "樂之舞靈", "TJobMaxPoint": [7,9,6,10,8,3,6,7,4,6,11,4]},
-    4308: {"id": "SUM", "name": "魂靈師", "TJobMaxPoint": [5,7,5,9,12,5,8,6,5,8,7,4]},
-    4307: {"id": "SN", "name": "終極初學者", "TJobMaxPoint": [10,5,6,10,5,6,9,5,4,9,8,3]},
-    4306: {"id": "RE", "name": "夜行者", "TJobMaxPoint": [3,8,6,8,11,7,11,6,5,0,10,5]},
-    4304: {"id": "OB", "name": "流浪忍者", "TJobMaxPoint": [10,12,6,4,9,3,10,10,4,0,6,8]},
-    4305: {"id": "KO", "name": "疾風忍者", "TJobMaxPoint": [4,8,5,10,10,3,4,8,10,3,6,7]},
-    4303: {"id": "SL", "name": "契靈士", "TJobMaxPoint": [3,7,7,11,13,2,0,8,7,16,7,3]},
-    4302: {"id": "SE", "name": "天帝", "TJobMaxPoint": [12,10,6,3,9,3,12,10,2,0,6,7]},
+    4252: {"id": "RK","selectskill": "RK/DK", "name": "盧恩龍爵", "TJobMaxPoint": [6,8,7,8,8,6,10,6,3,5,6,8]},
+    4253: {"id": "ME","selectskill": "NC/MT", "name": "機甲神匠", "TJobMaxPoint": [10,6,10,6,5,6,9,10,5,0,7,7]},
+    4254: {"id": "GX","selectskill": "CG/ASC/SHC", "name": "十字影武", "TJobMaxPoint": [8,11,6,5,9,4,12,8,4,0,7,7]},
+    4255: {"id": "WL","selectskill": "WL/AG", "name": "禁咒魔導士", "TJobMaxPoint": [1,7,8,15,8,4,0,8,7,13,9,1]},
+    4256: {"id": "AB","selectskill": "AB/CD", "name": "樞機主教", "TJobMaxPoint": [6,7,7,12,7,4,8,5,5,9,4,7]},
+    4257: {"id": "RA","selectskill": "SN/RA/WH", "name": "風鷹狩獵者", "TJobMaxPoint": [2,12,8,9,8,4,9,5,5,4,11,4]},
+    4258: {"id": "RG","selectskill": "LG/PA/IG", "name": "帝國聖衛軍", "TJobMaxPoint": [9,3,9,10,9,3,7,11,6,7,4,3]},
+    4259: {"id": "GE","selectskill": "GN/CR/BO", "name": "生命締造者", "TJobMaxPoint": [5,6,8,12,8,4,7,4,4,4,7,12]},
+    4260: {"id": "SC","selectskill": "SC/ABC", "name": "深淵追跡者", "TJobMaxPoint": [8,9,8,6,6,6,8,8,4,7,5,6]},
+    4261: {"id": "SO","selectskill": "SO/EM", "name": "元素支配者", "TJobMaxPoint": [4,4,8,13,9,5,3,8,7,12,5,3]},
+    4262: {"id": "SU","selectskill": "MO/SR/IQ", "name": "聖裁者", "TJobMaxPoint": [10,10,6,8,8,1,11,8,5,3,5,6]},
+    4263: {"id": "MI","selectskill": "CG/WM/TR", "name": "天籟頌者", "TJobMaxPoint": [7,7,7,9,10,3,6,7,4,6,11,4]},
+    4264: {"id": "WA","selectskill": "CG/WM/TR", "name": "樂之舞靈", "TJobMaxPoint": [7,9,6,10,8,3,6,7,4,6,11,4]},
+    4308: {"id": "SUM","selectskill": "SU/SH", "name": "魂靈師", "TJobMaxPoint": [5,7,5,9,12,5,8,6,5,8,7,4]},
+    4307: {"id": "SN","selectskill": "HN", "name": "終極初學者", "TJobMaxPoint": [10,5,6,10,5,6,9,5,4,9,8,3]},
+    4306: {"id": "RE","selectskill": "RL/NW", "name": "夜行者", "TJobMaxPoint": [3,8,6,8,11,7,11,6,5,0,10,5]},
+    4304: {"id": "OB","selectskill": "NJ/KO/SS", "name": "流浪忍者", "TJobMaxPoint": [10,12,6,4,9,3,10,10,4,0,6,8]},
+    4305: {"id": "KO","selectskill": "NJ/KO/SS", "name": "疾風忍者", "TJobMaxPoint": [4,8,5,10,10,3,4,8,10,3,6,7]},
+    4303: {"id": "SL","selectskill": "SP/SOA", "name": "契靈士", "TJobMaxPoint": [3,7,7,11,13,2,0,8,7,16,7,3]},
+    4302: {"id": "SE","selectskill": "TK/SJ/SKE", "name": "天帝", "TJobMaxPoint": [12,10,6,3,9,3,12,10,2,0,6,7]},
 }
 
 stat_name_sets  = {#裝備基礎編碼
@@ -866,7 +866,9 @@ class CSVEditor(QMainWindow):
             QMessageBox.warning(self, "錯誤", "請先選擇一個 Name")
             return
 
+        # 編輯 filtered 的 row
         row = self.filtered_rows[index]
+        # 這裡把 UI 的內容寫進 row
         for i, header in enumerate(self.headers):
             if header.lower() == "name":
                 continue
@@ -882,21 +884,26 @@ class CSVEditor(QMainWindow):
                     row[i] = new_value
                 else:
                     row.append(new_value)
-        self.data = [
-            row if row is not self.filtered_rows[index] else self.filtered_rows[index]
-            for row in self.data
-        ]
+        # 這裡很重要：要把這筆 row 寫回 self.data 對應的那一筆
+        id_index = self.headers.index("ID")
+        row_id = row[id_index]
+        for i, drow in enumerate(self.data):
+            if drow[id_index] == row_id:
+                self.data[i] = row[:]  # 或用 copy()
+                break
+
+        # 這裡才進行存檔，寫 self.data
         try:
             with open(self.file_path, "w", newline='', encoding='utf-8-sig') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(self.headers)
                 writer.writerows(self.data)
-                load_skill_map()  # 重新載入技能列表
-            #QMessageBox.information(self, "成功", "已儲存修改！")
+            load_skill_map()  # 重新載入技能列表
             if close_after:
                 self.close()
         except Exception as e:
             QMessageBox.critical(self, "錯誤", f"儲存失敗：{e}")
+
 
 
     def closeEvent(self, event):
@@ -2591,8 +2598,10 @@ class ItemSearchApp(QWidget):
         # === [1] 取得技能 row
         skill_row = skill_df[skill_df["Name"] == selected_skill_name]
         if skill_row.empty:
-            raise ValueError(f"找不到技能：{selected_skill_name}")
-        skill_row = skill_row.iloc[0]
+            # 給一個「空內容但欄位齊全」的 Series
+            skill_row = pd.Series({col: None for col in skill_df.columns})
+        else:
+            skill_row = skill_row.iloc[0]
 
         # [2] 根據種族選擇正確的公式，並同步 UI
         default_formula = str(skill_row["Calculation"]).strip()
@@ -4359,6 +4368,7 @@ class ItemSearchApp(QWidget):
         self.update_dex_int_half_note()
 
 
+
     def parse_equipment_blocks(self, content):
         import re
 
@@ -4399,8 +4409,6 @@ class ItemSearchApp(QWidget):
 
     
     def load_saved_inputs(self, filename="saved_inputs.json"):
-
-
         if not os.path.exists(filename):
             return
         # 🔹 暫停所有 widget 的 signal
@@ -4447,7 +4455,10 @@ class ItemSearchApp(QWidget):
         # 🔹 恢復 signal
         for widget in self.findChildren(QWidget):
             widget.blockSignals(False)
-            
+
+        # 輸入空白並清空技能強制更新
+        self.skill_filter_input.setText(" ")
+        self.skill_filter_input.clear()
         # 技能欄位
         if "skill_name" in saved_data:
             index = self.skill_box.findText(saved_data["skill_name"])
@@ -5083,7 +5094,8 @@ class ItemSearchApp(QWidget):
                 combo = QComboBox()
                 for job_id, job_info in sorted(job_dict.items()):
                     combo.addItem(job_info["name"], job_id)
-                combo.currentIndexChanged.connect(self.trigger_total_effect_update)
+                combo.currentIndexChanged.connect(self.trigger_total_effect_update)         
+                #combo.currentIndexChanged.connect(filter_skills) #移動到filter_skills後面註冊
                 combo.setMaximumWidth(210)#調整寬度
                 self.input_fields[label] = combo
                 row_layout.addWidget(combo)
@@ -5813,11 +5825,32 @@ class ItemSearchApp(QWidget):
             for key, display_name in skill_map.items():
                 skill_data = skill_map_all.get(key)
                 slv = skill_data.get("Slv") if skill_data else None
+                code = skill_data.get("Code") if skill_data else None
+                job_id = self.input_fields["JOB"].currentData()#取得職業ID
+                skill_job_box = job_dict[job_id]["selectskill"]#取得職業ID技能代號(過濾用)
 
+                # 以 '/' 分隔出多個職業前綴
+                job_prefixes = set(skill_job_box.split('/'))
+                print(f"過濾的前置:{job_prefixes}，取得職業代號:{skill_job_box}，取得職業ID:{job_id}，取得code:{code}")
                 # 無搜尋文字時，只顯示有 Slv 的技能
                 if text == "":
+                    # 過濾 Slv 為空、空字串、None、NaN 
+                    #if pd.notna(slv) and str(slv).strip() != "":
+                    #   self.skill_box.addItem(skill_map[key], key)
+
+                    # 只過濾skill_job_box
+                    #if code and '_' in code:
+                    #    code_prefix = code.split('_')[0]
+                    #    if code_prefix in job_prefixes:
+                    #        self.skill_box.addItem(skill_map[key], key)
+
+                    # 1. Slv 不能為空、空字串、None、NaN
+                    # 2. code 必須有，且 '_' 分割後的前綴必須在職業前綴清單裡
                     if pd.notna(slv) and str(slv).strip() != "":
-                        self.skill_box.addItem(display_name, key)
+                        if code and '_' in code:
+                            code_prefix = code.split('_')[0]
+                            if code_prefix in job_prefixes:
+                                self.skill_box.addItem(skill_map[key], key)
                 else:
                     # 有搜尋時顯示所有技能（包含沒有 Slv）
                     if text in display_name.lower():
@@ -5835,7 +5868,7 @@ class ItemSearchApp(QWidget):
                 self.skill_LV_input.setText("0")
                 self.skill_hits_input.setText("")
 
-
+        combo.currentIndexChanged.connect(filter_skills)#註冊JOB變更時過濾技能列表
 
         
         skill_select_layout_top = QHBoxLayout()
@@ -5912,10 +5945,30 @@ class ItemSearchApp(QWidget):
         for key in skill_map:
             skill_data = skill_map_all.get(key)
             slv = skill_data.get("Slv") if skill_data else None
+            code = skill_data.get("Code") if skill_data else None
+            job_id = self.input_fields["JOB"].currentData()#取得職業ID
+            skill_job_box = job_dict[job_id]["selectskill"]#取得職業ID技能代號(過濾用)
 
-            # 過濾 Slv 為空、空字串、None、NaN
+            # 以 '/' 分隔出多個職業前綴
+            job_prefixes = set(skill_job_box.split('/'))
+
+            # 過濾 Slv 為空、空字串、None、NaN 
+            #if pd.notna(slv) and str(slv).strip() != "":
+            #   self.skill_box.addItem(skill_map[key], key)
+
+            #過濾職業技能
+            #if code and '_' in code:
+            #    code_prefix = code.split('_')[0]
+            #    if code_prefix in job_prefixes:
+            #        self.skill_box.addItem(skill_map[key], key)
+
+            # 1. Slv 不能為空、空字串、None、NaN
+            # 2. code 必須有，且 '_' 分割後的前綴必須在職業前綴清單裡
             if pd.notna(slv) and str(slv).strip() != "":
-                self.skill_box.addItem(skill_map[key], key)
+                if code and '_' in code:
+                    code_prefix = code.split('_')[0]
+                    if code_prefix in job_prefixes:
+                        self.skill_box.addItem(skill_map[key], key)
 
         # 綁定更新函式
         self.skill_box.currentIndexChanged.connect(update_skill_formula_display)
@@ -6523,6 +6576,8 @@ class ItemSearchApp(QWidget):
             self.update_window_title()
             self.display_all_effects()
             self.update_dex_int_half_note()
+
+
         except Exception as e:
             QMessageBox.critical(self, "錯誤", f"載入失敗：\n{str(e)}")
 
