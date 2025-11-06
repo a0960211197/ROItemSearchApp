@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.0.8-251104"
+Version = "v0.0.9-251104"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -194,31 +194,32 @@ unit_map = {
 class_map = {
     0: "一般",
     1: "首領",
-    2: "玩家"
+    2: "監護人"
+    #2: "玩家"
 }
 
 #職業名稱跟JOB補正#ROCalculator
 job_dict = {
-    4252: {"name": "盧恩龍爵", "TJobMaxPoint": [6,8,7,8,8,6,10,6,3,5,6,8]},
-    4253: {"name": "機甲神匠", "TJobMaxPoint": [10,6,10,6,5,6,9,10,5,0,7,7]},
-    4254: {"name": "十字影武", "TJobMaxPoint": [8,11,6,5,9,4,12,8,4,0,7,7]},
-    4255: {"name": "禁咒魔導士", "TJobMaxPoint": [1,7,8,15,8,4,0,8,7,13,9,1]},
-    4256: {"name": "樞機主教", "TJobMaxPoint": [6,7,7,12,7,4,8,5,5,9,4,7]},
-    4257: {"name": "風鷹狩獵者", "TJobMaxPoint": [2,12,8,9,8,4,9,5,5,4,11,4]},
-    4258: {"name": "帝國聖衛軍", "TJobMaxPoint": [9,3,9,10,9,3,7,11,6,7,4,3]},
-    4259: {"name": "生命締造者", "TJobMaxPoint": [5,6,8,12,8,4,7,4,4,4,7,12]},
-    4260: {"name": "深淵追跡者", "TJobMaxPoint": [8,9,8,6,6,6,8,8,4,7,5,6]},
-    4261: {"name": "元素支配者", "TJobMaxPoint": [4,4,8,13,9,5,3,8,7,12,5,3]},
-    4262: {"name": "聖裁者", "TJobMaxPoint": [10,10,6,8,8,1,11,8,5,3,5,6]},
-    4263: {"name": "天籟頌者", "TJobMaxPoint": [7,7,7,9,10,3,6,7,4,6,11,4]},
-    4264: {"name": "樂之舞靈", "TJobMaxPoint": [7,9,6,10,8,3,6,7,4,6,11,4]},
-    4308: {"name": "魂靈師", "TJobMaxPoint": [5,7,5,9,12,5,8,6,5,8,7,4]},
-    4307: {"name": "終極初學者", "TJobMaxPoint": [10,5,6,10,5,6,9,5,4,9,8,3]},
-    4306: {"name": "夜行者", "TJobMaxPoint": [3,8,6,8,11,7,11,6,5,0,10,5]},
-    4304: {"name": "流浪忍者", "TJobMaxPoint": [10,12,6,4,9,3,10,10,4,0,6,8]},
-    4305: {"name": "疾風忍者", "TJobMaxPoint": [4,8,5,10,10,3,4,8,10,3,6,7]},
-    4303: {"name": "契靈士", "TJobMaxPoint": [3,7,7,11,13,2,0,8,7,16,7,3]},
-    4302: {"name": "天帝", "TJobMaxPoint": [12,10,6,3,9,3,12,10,2,0,6,7]},
+    4252: {"id": "RK", "name": "盧恩龍爵", "TJobMaxPoint": [6,8,7,8,8,6,10,6,3,5,6,8]},
+    4253: {"id": "ME", "name": "機甲神匠", "TJobMaxPoint": [10,6,10,6,5,6,9,10,5,0,7,7]},
+    4254: {"id": "GX", "name": "十字影武", "TJobMaxPoint": [8,11,6,5,9,4,12,8,4,0,7,7]},
+    4255: {"id": "WL", "name": "禁咒魔導士", "TJobMaxPoint": [1,7,8,15,8,4,0,8,7,13,9,1]},
+    4256: {"id": "AB", "name": "樞機主教", "TJobMaxPoint": [6,7,7,12,7,4,8,5,5,9,4,7]},
+    4257: {"id": "RA", "name": "風鷹狩獵者", "TJobMaxPoint": [2,12,8,9,8,4,9,5,5,4,11,4]},
+    4258: {"id": "RG", "name": "帝國聖衛軍", "TJobMaxPoint": [9,3,9,10,9,3,7,11,6,7,4,3]},
+    4259: {"id": "GE", "name": "生命締造者", "TJobMaxPoint": [5,6,8,12,8,4,7,4,4,4,7,12]},
+    4260: {"id": "SC", "name": "深淵追跡者", "TJobMaxPoint": [8,9,8,6,6,6,8,8,4,7,5,6]},
+    4261: {"id": "SO", "name": "元素支配者", "TJobMaxPoint": [4,4,8,13,9,5,3,8,7,12,5,3]},
+    4262: {"id": "SU", "name": "聖裁者", "TJobMaxPoint": [10,10,6,8,8,1,11,8,5,3,5,6]},
+    4263: {"id": "MI", "name": "天籟頌者", "TJobMaxPoint": [7,7,7,9,10,3,6,7,4,6,11,4]},
+    4264: {"id": "WA", "name": "樂之舞靈", "TJobMaxPoint": [7,9,6,10,8,3,6,7,4,6,11,4]},
+    4308: {"id": "SUM", "name": "魂靈師", "TJobMaxPoint": [5,7,5,9,12,5,8,6,5,8,7,4]},
+    4307: {"id": "SN", "name": "終極初學者", "TJobMaxPoint": [10,5,6,10,5,6,9,5,4,9,8,3]},
+    4306: {"id": "RE", "name": "夜行者", "TJobMaxPoint": [3,8,6,8,11,7,11,6,5,0,10,5]},
+    4304: {"id": "OB", "name": "流浪忍者", "TJobMaxPoint": [10,12,6,4,9,3,10,10,4,0,6,8]},
+    4305: {"id": "KO", "name": "疾風忍者", "TJobMaxPoint": [4,8,5,10,10,3,4,8,10,3,6,7]},
+    4303: {"id": "SL", "name": "契靈士", "TJobMaxPoint": [3,7,7,11,13,2,0,8,7,16,7,3]},
+    4302: {"id": "SE", "name": "天帝", "TJobMaxPoint": [12,10,6,3,9,3,12,10,2,0,6,7]},
 }
 
 stat_name_sets  = {#裝備基礎編碼
@@ -469,6 +470,7 @@ equipid_mapping = {#主程式equip to ROCalculator 轉換
 status_mapping = {#主程式status to ROCalculator 轉換
     "BaseLv": "Level",
     "JobLv": "JOBLevel",
+    "job_idcore": "classid",
     "base_STR": "STR",
     "base_AGI": "AGI",
     "base_VIT": "VIT",
@@ -498,7 +500,7 @@ SubWeapon_mapping = {#主程式Subweapon to ROCalculator 轉換
     "weaponL_Level": ("level", "id"),
     "weaponGradeL": ("grade", "id"),
     "MATK_MweaponL": "MATK",
-    "weaponRefineR": "refinelevel"
+    "weaponRefineL": "refinelevel"
 }
 
 
@@ -775,8 +777,8 @@ class CSVEditor(QMainWindow):
                 "tooltip": "怪物種族觸發特別公式。(無形=0,不死=1,動物=2,植物=3,昆蟲=4,魚貝=5,惡魔=6,人形=7,天使=8,龍族=9)"
             },
             "skill_buff": {
-                "label": "觸發特殊計算技能(ID)",
-                "tooltip": "當前技能觸發的特殊技能 ID（例如狀態技能）。"
+                "label": "觸發特殊計算技能(ID)(未啟用)",
+                "tooltip": "目前技能觸發的特殊技能 ID（例如狀態技能）。"
             },
             "decay_hits": {
                 "label": "遞增/減段數",
@@ -898,56 +900,62 @@ class CSVEditor(QMainWindow):
 
 
     def closeEvent(self, event):
-        """當視窗關閉時，先清空主畫面的過濾欄，再回寫目前搜尋字。"""
         try:
-            # 取得目前搜尋欄的文字
             skill_name = self.search_box.text().strip()
-
-            # 若主程式存在且有 skill_filter_input，就清空再回寫
-            if hasattr(self, "app_instance") and self.app_instance and hasattr(self.app_instance, "skill_filter_input"):
-                filter_input = self.app_instance.skill_filter_input
-                filter_input.clear()
+            if hasattr(self, "app_instance") and self.app_instance and hasattr(self.app_instance, "skill_box"):
+                skill_box = self.app_instance.skill_box
                 if skill_name:
-                    filter_input.setText(skill_name)
-
+                    idx = skill_box.findText(skill_name)
+                    if idx != -1:
+                        skill_box.setCurrentIndex(idx)
+                    else:
+                        print(f"[CSVEditor.closeEvent] skill_box 沒有 {skill_name}")
         except Exception as e:
-            print(f"[CSVEditor.closeEvent] 回寫技能名稱失敗：{e}")
+            print(f"[CSVEditor.closeEvent] 回寫技能名稱到 skill_box 失敗：{e}")
 
-        # ✅ 繼續執行原本的關閉事件
+        # 重新計算（呼叫主視窗）
+        try:
+            if getattr(self, "app_instance", None) and hasattr(self.app_instance, "replace_custom_calc_content"):
+                # 若想強制重算，可先清掉快取狀態
+                setattr(self.app_instance, "_last_calc_state", None)
+                # 直接呼叫（同執行緒）
+                self.app_instance.replace_custom_calc_content()
+                # 若擔心和 UI 事件衝突，也可以改用排入事件佇列的方式：
+                # QMetaObject.invokeMethod(self.app_instance, "replace_custom_calc_content", Qt.QueuedConnection)
+            else:
+                print("[CSVEditor.closeEvent] 找不到 app_instance 或其 replace_custom_calc_content 方法")
+        except Exception as e:
+            print(f"[CSVEditor.closeEvent] 重新計算失敗：{e}")
+
         super().closeEvent(event)
+
 
 
 
 def open_skill_editor(app_instance=None):
     global skill_editor  
-    """
-    開啟技能編輯器。
-    若主程式有 skill_box，會自動帶入名稱；
-    關閉時會自動回寫到 skill_filter_input。
-    """
-    global skill_editor
-
     if skill_editor is None or not skill_editor.isVisible():
-        # 🔹 將主程式設為 parent，讓視窗可置中
         skill_editor = CSVEditor(r"data\skillneme.csv", parent=app_instance)
-
-        # ✅ 記錄主程式實例，以便關閉時回寫使用
         skill_editor.app_instance = app_instance
-
         skill_editor.show()
     else:
         skill_editor.raise_()
         skill_editor.activateWindow()
 
-    # === 自動填入技能名稱 ===
+    # === 設定編輯器的 name_combo 下拉式 ===
     if app_instance and hasattr(app_instance, "skill_box"):
         try:
             skill_name = app_instance.skill_box.currentText().strip()
             if skill_name:
-                skill_editor.search_box.setText(skill_name)
-                skill_editor.filter_names(skill_name)
+                idx = skill_editor.name_combo.findText(skill_name)
+                if idx != -1:
+                    skill_editor.name_combo.setCurrentIndex(idx)
+                else:
+                    print(f"[open_skill_editor] 編輯器內找不到技能：{skill_name}")
         except Exception as e:
-            print(f"[open_skill_editor] 自動填入技能名稱失敗：{e}")
+            print(f"[open_skill_editor] 設定編輯器下拉式失敗：{e}")
+
+
 
 
 def parse_lua_effects_with_variables(
@@ -2109,6 +2117,7 @@ class ItemSearchApp(QWidget):
         class_key = self.class_box.currentData()
         element_lv_key = self.element_lv_input.text() or 1
         user_element_key = self.attack_element_box.currentData()
+
         #monsterDamage_key = self.monsterDamage_input.text() or "0"#指定魔物增傷UI
         # 整數輸入值（注意空字串要預設為 0）
         d_ef = self.def_input.text() or "0"
@@ -2117,8 +2126,9 @@ class ItemSearchApp(QWidget):
         mdef = self.mdef_input.text() or "0"
         mdefc = self.mdefc_input.text() or "0"
         mres = self.mres_input.text() or "0"
+        skill_formula = self.skill_formula_input.text()
         # 組合新的 state_key
-        state_key = f"{skill_key}|{skill_lv}|{current_text}|{equip_state}|{special_state}|{size_key}|{element_key}|{race_key}|{class_key}|{d_ef}|{defc}|{res}|{mdef}|{mdefc}|{mres}|{element_lv_key}|{user_element_key}"
+        state_key = f"{skill_formula}|{skill_key}|{skill_lv}|{current_text}|{equip_state}|{special_state}|{size_key}|{element_key}|{race_key}|{class_key}|{d_ef}|{defc}|{res}|{mdef}|{mdefc}|{mres}|{element_lv_key}|{user_element_key}"
 
 
         if getattr(self, "_last_calc_state", None) == state_key:
@@ -2154,6 +2164,7 @@ class ItemSearchApp(QWidget):
         # === 從 UI 輸入 + 職業 + 裝備效果取各項能力加成 ===
         job_id = self.input_fields["JOB"].currentData()
         job_bonus = job_dict.get(job_id, {}).get("TJobMaxPoint", [])
+        globals()["job_idcore"] = job_dict[job_id]["id"]#取得職業ID代號
         raw_effects = getattr(self, "effect_dict_raw", {})
 
         for i, stat in enumerate(stat_names):
@@ -2586,6 +2597,8 @@ class ItemSearchApp(QWidget):
         # [2] 根據種族選擇正確的公式，並同步 UI
         default_formula = str(skill_row["Calculation"]).strip()
         final_formula = default_formula
+        #(轉roc用) 從選擇的技能拿出code設定全域以備轉換
+        globals()["SkillCode"] = str(skill_row["Code"]).strip()
 
         if pd.notna(skill_row.get("Special_Calculation")) and pd.notna(skill_row.get("monster_race")):
             #print(f"[DEBUG]比對的的種族: {skill_row.get('monster_race')}")
@@ -6316,6 +6329,14 @@ class ItemSearchApp(QWidget):
                     print(f"⚠️ 找不到變數：{var_name}（對應 Status[{status_key}]），略過。")
         else:
             print("⚠️ 模板中沒有 Status 區塊。")
+
+        # === 更新技能code ===
+        if "Skill" in new_data and isinstance(new_data["Skill"], dict):
+            old_value = new_data["Skill"].get("id", None)
+            new_data["Skill"]["id"] = SkillCode
+            print(f"🔄 Skill['id'] 從 {old_value} → {SkillCode}")
+        else:
+            print("⚠️ 模板中沒有 Skill 區塊或格式不正確")
 
         # === 根據 weapon_mapping 更新 Weapon ===
         weapon_data = new_data.get("Weapon", {})

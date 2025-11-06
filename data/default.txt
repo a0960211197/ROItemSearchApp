@@ -69,38 +69,9 @@
     "MHP": 0,
     "MSP": 0
   },
-  "SkillName": "",
   "Skill": {
     "id": "",
-    "name": "",
-    "level": 0,
-    "formula": 0,
-    "ranged": false,
-    "critical": false,
-    "cannon": false,
-    "cart": false,
-    "transWeaponDEF": false,
-    "ignoreRES": false,
-    "laterformula": false,
-    "hitnumber": 1,
-    "elemental": 0,
-    "FCT": 0,
-    "VCT": 0,
-    "CD": 0,
-    "GCD": 0,
-    "SpecialATK1": 0,
-    "SpecialATK2": 0,
-    "SpecialATK3": 0,
-    "SpecialATK4": 0,
-    "SpecialATK5": 0,
-    "SpecialATK6": 0,
-    "SpecialATK7": 0,
-    "SpecialATK8": 0,
-    "SpecialMATK1": 0,
-    "SpecialMATK2": 0,
-    "SpecialMATK3": 0,
-    "DamageTypeIdx": 0,
-    "Note": ""
+    "Note": "此計算機未有此公式，需手動新增或選擇。"
   },
   "SkillOption": {
     "AttackElementalIdx": 0,
@@ -146,7 +117,9 @@
     "doram": false
   },
   "Consumable": [],
-  "SupportSkill": [],
+  "SupportSkill": [
+    "WL_RECOGNIZEDSPELL"
+  ],
   "Damage": "0 ~ 0",
   "DamageDPS": 0,
   "NormalAttackDPS": 0
