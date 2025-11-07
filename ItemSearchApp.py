@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.0.10-251104"
+Version = "v0.0.11-251104"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -1661,7 +1661,7 @@ def parse_lua_effects_with_variables(
             race_id, value_expr = ignore_mres_race.groups()
             race_name = race_map.get(int(race_id), f"種族{race_id}")
             val = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
-            results.append(f"無視 {race_name} 的魔法抗性 {val}%")
+            results.append(f"無視 {race_name} 型怪的魔法抗性 {val}%")
             continue
             
         # SetIgnoreMdefClass（無視種族魔防）
@@ -1675,7 +1675,7 @@ def parse_lua_effects_with_variables(
             race_id, value_expr = ignore_mdef_race.groups()
             race_name = race_map.get(int(race_id), f"種族{race_id}")
             val = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
-            results.append(f"無視 {race_name} 的魔法防禦 {val}%")
+            results.append(f"無視 {race_name} 型怪的魔法防禦 {val}%")
             continue
             
         # 特定魔物魔法增傷MonsterMAtkPercent(value)
@@ -2307,16 +2307,27 @@ class ItemSearchApp(QWidget):
 
         #=================== 特殊增傷ui取得/處理區===================
         #萬紫4
-        skill_wanzih4_buff = 100 if self.special_checkboxes["wanzih_checkbox"].isChecked() and User_attack_element == 3 else 0
+        skill_wanzih4_buff = 100/100 if self.special_checkboxes["wanzih_checkbox"].isChecked() and User_attack_element == 3 else 0
         #魔力中毒
-        magic_poison_buff = 50 if self.special_checkboxes["magic_poison_checkbox"].isChecked() else 0
+        magic_poison_buff = 50/100 if self.special_checkboxes["magic_poison_checkbox"].isChecked() else 0
         #屬性紋章
-        attribute_seal_buff = 50 if self.special_checkboxes["attribute_seal_checkbox"].isChecked() and 1 <= User_attack_element <= 4 else 0
+        attribute_seal_buff = 1+50/100 if self.special_checkboxes["attribute_seal_checkbox"].isChecked() and 1 <= User_attack_element <= 4 else 1
         #潛擊
         is_sneak_checked = self.special_checkboxes["sneak_attack_checkbox"].isChecked()
-        sneak_attack_buff = 30 if is_sneak_checked and target_class == 0 else 15 if is_sneak_checked else 0
-
-
+        sneak_attack_buff = 1+30/100 if is_sneak_checked and target_class == 0 else 1+15/100 if is_sneak_checked else 0
+        sneak_MDattack_buff = 30/100 if is_sneak_checked and target_class == 0 else 15/100 if is_sneak_checked else 0
+        #致命塗毒
+        EDP_attack = 300 if self.special_checkboxes["EDP_attack_checkbox"].isChecked() else 0
+        #爪痕
+        is_DARKCROW_checked = self.special_checkboxes["DARKCROW_attack_checkbox"].isChecked()
+        DARKCROW_attack_buff = 1+150/100 if is_DARKCROW_checked and target_class == 0 else 1+75/100 if is_DARKCROW_checked else 0
+        #撼動
+        RUSH_attack_buff = 1+50/100 if self.special_checkboxes["RUSH_attack_checkbox"].isChecked() else 0
+        #孢子
+        SPORE_attack_buff = 1+5/100 if self.special_checkboxes["SPORE_attack_checkbox"].isChecked() else 0
+        #聖油
+        OLEUM_attack_buff = 1+20/100 if self.special_checkboxes["OLEUM_attack_checkbox"].isChecked() else 0
+        
 
         
         """
@@ -2382,6 +2393,23 @@ class ItemSearchApp(QWidget):
 
 
         #=======================技能欄公式====================
+        #====================DEF計算==================
+        def calc_final_def_damage(d_ef: float, reduction_percent: float) -> float:
+            """
+            根據 Excel 公式計算最終物理傷害比例
+            def: 後 DEF 數值
+            reduction_percent: DEF 破防百分比（例如 64 表示 64%）
+            回傳: 傷害倍率（小數，例如 0.4222）
+            """
+            
+            reduction = reduction_percent / 100
+            if reduction > 0.99:
+                return 1.0
+            adj = d_ef - (d_ef * reduction) - reduction
+            numerator = 4000 + adj
+            denominator = 4000 + adj * 10
+            resistance = numerator / denominator
+            return min(resistance, 1.0)  # ⬅️ 保證不超過 1.0
         #====================MRES,MDEF計算===================
         #====================MDEF計算==================
         def calc_final_mdef_damage(mdef: float, reduction_percent: float) -> float:
@@ -2400,8 +2428,8 @@ class ItemSearchApp(QWidget):
             denominator = 1000 + adj * 10
             resistance = numerator / denominator
             return min(resistance, 1.0)  # ⬅️ 保證不超過 1.0
-        #====================MRES計算==================
-        def calc_final_mres_damage(mres: float, reduction_percent: float) -> float:
+        #====================RES/MRES計算==================
+        def calc_final_res_damage(mres: float, reduction_percent: float) -> float:
 
             reduction = reduction_percent / 100
             if reduction > 0.99:
@@ -2412,19 +2440,33 @@ class ItemSearchApp(QWidget):
             resistance = numerator / denominator
             return min(resistance, 1.0)  # ⬅️ 保證不超過 1.0
             
+
+        #物理破防
+        #mdef m33=破防 l37=敵人mdef
+        #=IF(M33>0.99,1,(1000+(L37-(L37*M33)-M33))/(1000+(L37-(L37*M33)-M33)*10))
+        def_reduction = ((get_effect_multiplier('D_Race_def', target_race))+(get_effect_multiplier('D_class_def', target_class)))
+        damage_nodef = calc_final_def_damage(target_def, def_reduction)      
+        
+
         #魔法破防
         #mdef m33=破防 l37=敵人mdef
         #=IF(M33>0.99,1,(1000+(L37-(L37*M33)-M33))/(1000+(L37-(L37*M33)-M33)*10))
         mdef_reduction = ((get_effect_multiplier('MD_Race_def', target_race))+(get_effect_multiplier('MD_class_def', target_class)))
         Mdamage_nomdef = calc_final_mdef_damage(target_mdef, mdef_reduction)
-        #print(f"最終傷害比例：{Mdamage_nomdef:.4f} → {Mdamage_nomdef * 100:.2f}%")
+       
 
+        #res
         
+        res_reduction = ((get_effect_multiplier('D_Race_res', target_race))+(get_effect_multiplier('D_Race_res', 9999)))
+        res_reduction = min(res_reduction, 50)#破抗性最大50%
+        damage_nores = calc_final_res_damage(target_res, res_reduction)
+
+        #print(f"抗性最終傷害比例：{Mdamage_nomres:.4f} → {Mdamage_nomres * 100:.2f}%")
         #mres
         #=IF(M34>0.99,1,(2000+(L39-(L39*M34)-M34))/(2000+(L39-(L39*M34)-M34)*5))
         mres_reduction = ((get_effect_multiplier('MD_Race_res', target_race))+(get_effect_multiplier('MD_Race_res', 9999)))
         mres_reduction = min(mres_reduction, 50)#破抗性最大50%
-        Mdamage_nomres = calc_final_mres_damage(target_mres, mres_reduction)
+        Mdamage_nomres = calc_final_res_damage(target_mres, mres_reduction)
         #print(f"抗性最終傷害比例：{Mdamage_nomres:.4f} → {Mdamage_nomres * 100:.2f}%")
 
         
@@ -2506,7 +2548,7 @@ class ItemSearchApp(QWidget):
                     else:  # mode == 0
                         multiplier = bonus / 100
                     value = int(value * multiplier)
-                print(f"計算: {value}")
+               # print(f"計算: {value}")
             return value
 
             
@@ -2544,21 +2586,28 @@ class ItemSearchApp(QWidget):
             #武器基礎ATK(STR)
             BasicsWeaponATK = ATK_Mweapon * (1+ (total_STR/200) + (weaponR_Level*0.05))
         
-        print(f"BasicsWeaponATK:{BasicsWeaponATK}")
+        #print(f"BasicsWeaponATK:{BasicsWeaponATK}")
         #精煉武器ATK
         refineWeaponATK = int(BasicsWeaponATK + atk_refine_total)       
-        print(f"refineWeaponATK:{refineWeaponATK}")        
+        #print(f"refineWeaponATK:{refineWeaponATK}")
+
         #武器體型修正
         Weaponpunish = 1 if Ignore_size == 100 else get_size_penalty(weapon_class, target_size)
             
-        print(f"Ignore_size:{Ignore_size}") 
-        print(f"武器體型修正:{Weaponpunish}")   
+        #print(f"Ignore_size:{Ignore_size}") 
+        #print(f"武器體型修正:{Weaponpunish}")   
         #(精煉武器ATK*體型懲罰)+箭矢彈藥ATK
         refineammoATK = int(refineWeaponATK * Weaponpunish) + ammoATK
         
+        #怒爆或致命塗毒 1+(怒爆20%/致命塗毒25%)*屬性倍率 
+        #致命塗毒
+        EDP = 1 + 0.25 * (get_damage_multiplier(5, target_element, target_element_lv)/100) if self.special_checkboxes["EDP_attack_checkbox"].isChecked() else 1
+        #怒爆
+        MAGNUM = 1 + 0.2 * (get_damage_multiplier(3, target_element, target_element_lv)/100) if self.special_checkboxes["MAGNUM_attack_checkbox"].isChecked() else 1
+        #print(f"EDP:{EDP},MAGNUM:{MAGNUM}")
+        specialATK = int(refineammoATK * EDP * MAGNUM)
+
         #前素質總ATK
-        
-        
         if weapon_class in (11,13,14,17,18,19,20,21):#DEX系
             #ATKF = int((FATK*2) * (get_damage_multiplier(User_attack_element, target_element, target_element_lv)/100))
             ATKF = int((FATK*2) * (get_damage_multiplier(0, target_element, target_element_lv)/100)) #前段強制無屬 除非溫暖風轉屬
@@ -2566,13 +2615,9 @@ class ItemSearchApp(QWidget):
             ATKF = int((NATK*2) * (get_damage_multiplier(0, target_element, target_element_lv)/100)) #前段強制無屬 除非溫暖風轉屬
         
         #後武器總ATK
-        ATKC_Mweapon_ALL = (refineammoATK + ATK_armor) 
-        print(f"ATKC_Mweapon_ALL:{ATKC_Mweapon_ALL}")
-        
-        
-        
-        
-        
+        ATKC_Mweapon_ALL = (specialATK + ATK_armor) 
+        #print(f"ATKC_Mweapon_ALL:{ATKC_Mweapon_ALL}")
+
         
         #魔法===================
         #前MATK
@@ -2727,8 +2772,13 @@ class ItemSearchApp(QWidget):
 
                 print(f"轉換後的公式：{full_formula}")
                 bottom_result.append(f"{pad_label('技能公式:')}[{i+1}/{repeat_count}] {full_formula}")
-
-
+                #怪物減傷取得
+                def get_damage_reduction_value(self):
+                    text = self.damage_reduction_combobox.currentText()  # 例如 "100%"
+                    percent = float(text.replace('%', ''))
+                    value = percent / 100
+                    return value
+                
 
 
                 try:
@@ -2753,8 +2803,8 @@ class ItemSearchApp(QWidget):
                             (get_effect_multiplier('MD_size', target_size),1),
                             #屬性敵人
                             (get_effect_multiplier('MD_element', target_element) + get_effect_multiplier('MD_element', 10),1),
-                            #敵人屬性耐性
-                            ((skill_wanzih4_buff + magic_poison_buff),1),
+                            #敵人屬性耐性(1+萬紫+毒弱+彗星)
+                            (1 + (skill_wanzih4_buff + magic_poison_buff),"raw"),
                             #屬性魔法
                             (get_effect_multiplier('MD_Damage', User_attack_element) +get_effect_multiplier('MD_Damage', 10),1),
                             #種族
@@ -2781,9 +2831,9 @@ class ItemSearchApp(QWidget):
                             (passive_skill_buff,1),
                             #念力?
                             #潛擊 自動判斷階級
-                            (sneak_attack_buff,1),
+                            (sneak_MDattack_buff,1),
                             #屬性紋章 風水火地
-                            (attribute_seal_buff,1),
+                            (attribute_seal_buff,"raw")
                         )
                     elif attack_type == "physical":
                         #先計算ATK%已利後續計算
@@ -2795,25 +2845,36 @@ class ItemSearchApp(QWidget):
                             (get_effect_multiplier('D_Race', target_race) + get_effect_multiplier('D_Race', 9999),1),
                             #體型
                             (get_effect_multiplier('D_size', target_size),1),
+                            #致命塗毒
+                            (EDP_attack,1),
                             #屬性敵人
                             (get_effect_multiplier('D_element', target_element) + get_effect_multiplier('D_element', 10),1),
                             #階級
                             (get_effect_multiplier('D_class', target_class),1),
                             #特定魔物增傷
                             (target_monsterDamage,1),
+                            #後總ATK
+                            (ATK_percent_sign,"+"),
+                            #敵人屬性耐性(1+萬紫+毒弱+彗星)
+                            ((1 + skill_wanzih4_buff + magic_poison_buff),"raw"),
                         )
                         
-                        #後總ATK
-                        final_damage_1 += ATK_percent_sign 
-                        print(f"屬性倍率計算前: {final_damage_1}")
+                        #print(f"屬性倍率計算前: {final_damage_1}")
                         #屬性倍率
                         final_damage_1 = math.ceil(final_damage_1 * get_damage_multiplier(User_attack_element, target_element, target_element_lv) / 100)
-                        print(f"屬性倍率計算後: {final_damage_1}")
+                        #print(f"屬性倍率計算後: {final_damage_1}")
                         #最終ATK
                         final_damage_1 += ATKF
-                        print(f"最終ATK: {final_damage_1}")
+                        #print(f"最終ATK: {final_damage_1}")
                         #爆傷+技能半爆判斷
                         CRI_Critical_hit = (Damage_CRI * Critical_hit)
+                        #(潛擊)+(爪痕)+(撼動)
+                        special_melee_BUFF = max(1, sneak_attack_buff + DARKCROW_attack_buff + RUSH_attack_buff)
+                        #(潛擊)+(孢子)+(撼動)+(聖油)
+                        special_away_BUFF = max(1, sneak_attack_buff + SPORE_attack_buff + RUSH_attack_buff + OLEUM_attack_buff)
+
+                        print(f"special_away_BUFF:{special_away_BUFF}")
+                        print(f"special_melee_BUFF:{special_melee_BUFF}")
                         if weapon_class in (11,13,14,17,18,19,20,21):#DEX系
                             final_damage = apply_stepwise_percent_mode(
                                 #最終ATK初始值
@@ -2826,6 +2887,10 @@ class ItemSearchApp(QWidget):
                                 (RangeAttackDamage,1),
                                 #技能倍率
                                 (skill_result,0),
+                                #敵人MRES減傷
+                                (damage_nores,"raw"),
+                                #敵人MDEF減傷
+                                (damage_nodef,"raw"),
                                 #敵人DEF減算
                                 (target_defc,None),
                                 #裝備段技能增傷
@@ -2834,6 +2899,10 @@ class ItemSearchApp(QWidget):
                                 (passive_skill_buff,1),
                                 #C.RATE
                                 (total_CRATE,1.4),
+                                #(潛擊)+(孢子)+(爪痕)+(撼動)
+                                (special_away_BUFF,"raw"),
+                                #屬性紋章 風水火地
+                                (attribute_seal_buff,"raw")
                             )
                             print(f"技能爆擊最終傷害: {final_damage}")
                         else:#STR系
@@ -2852,6 +2921,10 @@ class ItemSearchApp(QWidget):
                                 (skill_result,0),
                                 #高階拳刃修煉
                                 (SKILL_ASC_KATAR,1),
+                                #敵人MRES減傷
+                                (damage_nores,"raw"),
+                                #敵人MDEF減傷
+                                (damage_nodef,"raw"),
                                 #敵人DEF減算
                                 (target_defc,None),
                                 #裝備段技能增傷
@@ -2860,13 +2933,18 @@ class ItemSearchApp(QWidget):
                                 (passive_skill_buff,1),
                                 #C.RATE
                                 (total_CRATE,1.4),
+                                #(潛擊)+(爪痕)+(撼動)
+                                (special_melee_BUFF,"raw"),
+                                #屬性紋章 風水火地
+                                (attribute_seal_buff,"raw")
                             )
                             print(f"技能爆擊最終傷害: {final_damage}")
                         
                     else:
                         raise ValueError(f"未知的攻擊類型: {attack_type}")
-                        
-                    
+
+                    #最終怪物強制減傷(boss綠光)
+                    final_damage = int(final_damage * get_damage_reduction_value(self))
 
                     if skill_hits < 0:# skill_hits < 0 表示這段總傷害要「均分」為多次
                         times = abs(skill_hits)
@@ -3108,11 +3186,11 @@ class ItemSearchApp(QWidget):
             #result.append(f"{pad_label('前DEF:')}{target_def}")
             result.append(f"{pad_label('無視階級防禦:')}{round(get_effect_multiplier('D_class_def', target_class))}%")
             result.append(f"{pad_label('無視種族防禦:')}{round(get_effect_multiplier('D_Race_def', target_race))}%")
-            #result.append(f"{pad_label('魔法破防後傷害:')}{Mdamage_nomdef * 100:.2f}%")
-            #result.append(f"{pad_label('後DEF:')}{target_mdefc}")
-            #result.append(f"{pad_label('RES:')}{target_mres}")
-            #result.append(f"{pad_label('無視物理抗性%:')}{mres_reduction}%")
-            #result.append(f"{pad_label('物理破抗性後傷害:')}{Mdamage_nomres * 100:.2f}%")
+            result.append(f"{pad_label('物理破防後傷害:')}{damage_nodef * 100:.2f}%")
+            result.append(f"{pad_label('後DEF:')}{target_defc}")
+            result.append(f"{pad_label('RES:')}{target_res}")
+            result.append(f"{pad_label('無視物理抗性%:')}{res_reduction}%")
+            result.append(f"{pad_label('物理破抗性後傷害:')}{damage_nores * 100:.2f}%")
             
 
             
@@ -3217,13 +3295,13 @@ class ItemSearchApp(QWidget):
         race_def_names = ["無形", "不死", "動物", "植物", "昆蟲", "魚貝", "惡魔", "人形", "天使", "龍族", "全種族"]
         race_indexes = list(range(10)) + [9999]
         for prefix in ["MD", "D"]:
-            self.apply_effect_mapping(effect_dict, f"{prefix}_Race_def", race_def_names, f"無視 {{}} 的{ '魔法' if prefix == 'MD' else '物理' }防禦", race_indexes)
+            self.apply_effect_mapping(effect_dict, f"{prefix}_Race_def", race_def_names, f"無視 {{}} 型怪的{ '魔法' if prefix == 'MD' else '物理' }防禦", race_indexes)
         
         # === 無視種族抗性 ===
         race_def_names = ["無形", "不死", "動物", "植物", "昆蟲", "魚貝", "惡魔", "人形", "天使", "龍族", "全種族"]
         race_indexes = list(range(10)) + [9999]
         for prefix in ["MD", "D"]:
-            self.apply_effect_mapping(effect_dict, f"{prefix}_Race_res", race_def_names, f"無視 {{}} 的{ '魔法' if prefix == 'MD' else '物理' }抗性", race_indexes)
+            self.apply_effect_mapping(effect_dict, f"{prefix}_Race_res", race_def_names, f"無視 {{}} 型怪的{ '魔法' if prefix == 'MD' else '物理' }抗性", race_indexes)
 
     
     def calc_weapon_refine_matk(self, weapon_Level, weaponRefineR, weaponGradeR):
@@ -5788,11 +5866,23 @@ class ItemSearchApp(QWidget):
         self.show_combo_source_checkbox.stateChanged.connect(self.display_all_effects)
         self.show_combo_source_checkbox.stateChanged.connect(self.trigger_total_effect_update)
 
+        # 減傷倍率下拉選單
+        self.damage_reduction_label = QLabel("減傷倍率:")
+        self.damage_reduction_combobox = QComboBox()
+        self.damage_reduction_combobox.addItems(["100%" ,"10%", "1%", "0.1%"])
+        self.damage_reduction_combobox.setCurrentIndex(0)
+        self.damage_reduction_combobox.currentIndexChanged.connect(self.trigger_total_effect_update)  # 有需要就綁定 signal
+
+        
+        
+
         checkbox_layout = QHBoxLayout()
         checkbox_layout.addWidget(self.hide_unrecognized_checkbox)
         checkbox_layout.addWidget(self.show_combo_source_checkbox)
         checkbox_layout.addWidget(self.hide_physical_checkbox)
         checkbox_layout.addWidget(self.hide_magical_checkbox)
+        checkbox_layout.addWidget(self.damage_reduction_label)
+        checkbox_layout.addWidget(self.damage_reduction_combobox)
         
         right_layout.addLayout(checkbox_layout)
 
@@ -5831,7 +5921,7 @@ class ItemSearchApp(QWidget):
 
                 # 以 '/' 分隔出多個職業前綴
                 job_prefixes = set(skill_job_box.split('/'))
-                print(f"過濾的前置:{job_prefixes}，取得職業代號:{skill_job_box}，取得職業ID:{job_id}，取得code:{code}")
+                #print(f"過濾的前置:{job_prefixes}，取得職業代號:{skill_job_box}，取得職業ID:{job_id}，取得code:{code}")
                 # 無搜尋文字時，只顯示有 Slv 的技能
                 if text == "":
                     # 過濾 Slv 為空、空字串、None、NaN 
@@ -6066,14 +6156,22 @@ class ItemSearchApp(QWidget):
         self.special_checkboxes = {
             "wanzih_checkbox": QCheckBox("萬紫千紅(巔峰4)"),
             "magic_poison_checkbox": QCheckBox("魔力中毒"),
-            "attribute_seal_checkbox": QCheckBox("屬性紋章(水地火風)"),
-            "sneak_attack_checkbox": QCheckBox("潛擊"),
+            "attribute_seal_checkbox": QCheckBox("屬性紋章(水地火風)"),            
+            "MAGNUM_attack_checkbox": QCheckBox("怒爆"),
+            "EDP_attack_checkbox": QCheckBox("致命塗毒"),
+            "sneak_attack_checkbox": QCheckBox("潛擊(近遠魔)"),
+            "SPORE_attack_checkbox": QCheckBox("爆炸孢子(遠)"),            
+            "DARKCROW_attack_checkbox": QCheckBox("致命爪痕(近)"),
+            "RUSH_attack_checkbox": QCheckBox("衝擊撼動(近遠)"),            
+            "OLEUM_attack_checkbox": QCheckBox("聖油洗禮(遠)"),
+
+
             # 可在這裡繼續新增更多項目
         }
 
 
         # 加入 layout（最多每行 4 個）
-        max_per_row = 4
+        max_per_row = 5
         for index, (key, checkbox) in enumerate(self.special_checkboxes.items()):
             row = index // max_per_row
             col = index % max_per_row
@@ -6817,7 +6915,7 @@ if __name__ == "__main__":
         window.parsed_items = data or {}
         window.update_combobox()
 
-        window.resize(1500, 800)
+        window.resize(1620, 800)
         window.show()
 
         QTimer.singleShot(1000, loading.close)
