@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.0.11-251104"
+Version = "v0.0.12-251104"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -202,7 +202,7 @@ class_map = {
 job_dict = {
     4252: {"id": "RK","selectskill": "RK/DK", "name": "盧恩龍爵", "TJobMaxPoint": [6,8,7,8,8,6,10,6,3,5,6,8]},
     4253: {"id": "ME","selectskill": "NC/MT", "name": "機甲神匠", "TJobMaxPoint": [10,6,10,6,5,6,9,10,5,0,7,7]},
-    4254: {"id": "GX","selectskill": "CG/ASC/SHC", "name": "十字影武", "TJobMaxPoint": [8,11,6,5,9,4,12,8,4,0,7,7]},
+    4254: {"id": "GX","selectskill": "GC/ASC/SHC", "name": "十字影武", "TJobMaxPoint": [8,11,6,5,9,4,12,8,4,0,7,7]},
     4255: {"id": "WL","selectskill": "WL/AG", "name": "禁咒魔導士", "TJobMaxPoint": [1,7,8,15,8,4,0,8,7,13,9,1]},
     4256: {"id": "AB","selectskill": "AB/CD", "name": "樞機主教", "TJobMaxPoint": [6,7,7,12,7,4,8,5,5,9,4,7]},
     4257: {"id": "RA","selectskill": "SN/RA/WH", "name": "風鷹狩獵者", "TJobMaxPoint": [2,12,8,9,8,4,9,5,5,4,11,4]},
@@ -487,6 +487,9 @@ status_mapping = {#主程式status to ROCalculator 轉換
 
 weapon_mapping = {#主程式weapon to ROCalculator 轉換
     "weapon_codes": ("type", "id"),
+    "weapon_weapon_size0": ("type", "sizefix", "small"),
+    "weapon_weapon_size1": ("type", "sizefix", "middle"),
+    "weapon_weapon_size2": ("type", "sizefix", "large"),
     "weaponR_Level": ("level", "id"),
     "weaponGradeR": ("grade", "id"),
     "ATK_Mweapon": "ATK",
@@ -987,7 +990,7 @@ def parse_lua_effects_with_variables(
     indent_stack = []
     weapon_level_map = variables.setdefault("__weapon_level_map__", {})
 
-
+    block_stack = []  # 用來追蹤 if-elseif-else 區塊狀態
     safe_globals = {"__builtins__": None}
     safe_locals = {"math": __import__("math")}
     def safe_eval_expr(expr, variables, get_values, refine_inputs, grade):
@@ -1014,7 +1017,8 @@ def parse_lua_effects_with_variables(
     
     
     
-
+        
+    
     
 
     for line in lines:
@@ -1116,10 +1120,10 @@ def parse_lua_effects_with_variables(
                         global_armor_level_map[current_location_slot] = val
                     elif stat_name == "武器ATK":
                         global_weapon_atk_map[current_location_slot] = val
-                        print(f"設定武器ATK: 部位{current_location_slot} = {val}")
+                        #print(f"設定武器ATK: 部位{current_location_slot} = {val}")
                     elif stat_name == "武器MATK":
                         global_weapon_matk_map[current_location_slot] = val
-                        print(f"設定武器MATK: 部位{current_location_slot} = {val}")
+                        #print(f"設定武器MATK: 部位{current_location_slot} = {val}")
 
                         
                     # ✅ 處理武器類型（使用 map 轉換中文名稱）
@@ -1137,80 +1141,98 @@ def parse_lua_effects_with_variables(
 
 
 
-
-        # 處理 if 條件判斷
+            
+         # 處理 if 條件
         if_match = re.match(r"if\s+(.+?)\s+then", line)
         if if_match:
-            if indent_stack and not all(indent_stack):
-                # 有任一父層不成立，這層就直接 append False
-                indent_stack.append(False)
-                condition_met = False
+            # 檢查父層是否成立
+            parent_active = all(block['active'] for block in block_stack)
+            if not parent_active:
+                block_stack.append({"active": False, "branch_taken": False})
                 continue
 
             expr = if_match.group(1)
             expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
-            expr = re.sub(r"GetItemIDLocation\((\d+)\)",lambda m: str(slot_item_id_map.get(int(m.group(1)), 0)),expr)#裝備的item_ID
-            
+            expr = re.sub(r"GetItemIDLocation\((\d+)\)", lambda m: str(slot_item_id_map.get(int(m.group(1)), 0)), expr)
             for v in sorted(variables.keys(), key=lambda x: -len(x)):
                 expr = re.sub(rf'\b{re.escape(v)}\b', str(variables[v]), expr)
-                
-            # ✅ Lua ➜ Python 條件語法轉換
+
             expr = expr.replace("~=", "!=")
             expr = expr.replace(" and ", " and ")
             expr = expr.replace(" or ", " or ")
             expr = expr.replace(" not ", " not ")
+
             try:
                 result = eval(expr, safe_globals, safe_locals)
-                condition_met = bool(result)
-                results.append(f"{'✅條件成立' if condition_met else '❌條件不成立'} : {if_match.group(1)}")
+                is_true = bool(result)
+                results.append(f"{'✅ if 條件成立' if is_true else '❌ if 條件不成立'} : {if_match.group(1)}")
             except Exception as e:
-                condition_met = False
+                is_true = False
                 results.append(f"⚠️ 無法解析條件: {if_match.group(1)}，錯誤: {e}")
-            indent_stack.append(condition_met)
+
+            block_stack.append({"active": is_true, "branch_taken": is_true})
             continue
 
         # elseif 判斷
         elseif_match = re.match(r"elseif\s+(.+?)\s+then", line)
         if elseif_match:
-            if indent_stack and indent_stack[-1] is True:
-                # 上一層條件已成立，這一層不執行
-                indent_stack.append(False)
-                condition_met = False
+            if not block_stack:
+                raise Exception("elseif without if")
+            # 先移除上一個分支
+            last = block_stack.pop()
+            parent_active = all(block['active'] for block in block_stack)
+            if not parent_active or last["branch_taken"]:
+                # 父層不成立 或 已有分支成立
+                block_stack.append({"active": False, "branch_taken": True})
                 continue
+
             expr = elseif_match.group(1)
             expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
-            expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)           
-            expr = re.sub(r"GetItemIDLocation\((\d+)\)",lambda m: str(slot_item_id_map.get(int(m.group(1)), 0)),expr)#裝備的item_ID
+            expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
+            expr = re.sub(r"GetItemIDLocation\((\d+)\)", lambda m: str(slot_item_id_map.get(int(m.group(1)), 0)), expr)
             for v in sorted(variables.keys(), key=lambda x: -len(x)):
                 expr = re.sub(rf'\b{re.escape(v)}\b', str(variables[v]), expr)
+            expr = expr.replace("~=", "!=")
+            expr = expr.replace(" and ", " and ")
+            expr = expr.replace(" or ", " or ")
+            expr = expr.replace(" not ", " not ")
+
             try:
                 result = eval(expr, safe_globals, safe_locals)
-                condition_met = bool(result)
-                results.append(f"{'✅' if condition_met else '❌'} 條件成立: {expr}")
+                is_true = bool(result)
+                results.append(f"{'✅ elseif 條件成立' if is_true else '❌ elseif 條件不成立'} : {expr}")
             except Exception as e:
-                condition_met = False
+                is_true = False
                 results.append(f"⚠️ 無法解析條件: {expr}，錯誤: {e}")
-            indent_stack.append(condition_met)
+
+            block_stack.append({"active": is_true, "branch_taken": is_true})
             continue
 
         # else 判斷
         if line.startswith("else"):
-            if indent_stack and indent_stack[-1] is True:
-                indent_stack.append(False)
-                condition_met = False
+            if not block_stack:
+                raise Exception("else without if")
+            last = block_stack.pop()
+            parent_active = all(block['active'] for block in block_stack)
+            if not parent_active or last["branch_taken"]:
+                block_stack.append({"active": False, "branch_taken": True})
             else:
-                indent_stack.append(True)
-                condition_met = True
+                block_stack.append({"active": True, "branch_taken": True})
             continue
-            
+
+        # end 判斷
         if line == "end":
-            if indent_stack:
-                indent_stack.pop()
-            condition_met = all(indent_stack) if indent_stack else True
+            if block_stack:
+                block_stack.pop()
             continue
+
+        # 一般語句判斷
+        if block_stack and not all(block['active'] for block in block_stack):
+            continue
+
 
         # 支援多個 GetRefineLevel 連加 (先處理多段再處理單段)
         multi_refine_assign = re.match(
@@ -2224,7 +2246,7 @@ class ItemSearchApp(QWidget):
         #globals()["weapon_Level"] = sum(val for val, _ in effect_dict.get(("武器等級", ""), []))#捨棄ui資料，改成map資料
         globals()["weaponR_Level"] = global_weapon_level_map.get(4, 0)#主手
         globals()["weaponL_Level"] = global_weapon_level_map.get(3, 0)#副手
-        print(f"武器等級R{weaponR_Level} L{weaponL_Level}")
+        #print(f"武器等級R{weaponR_Level} L{weaponL_Level}")
         #箭矢彈藥ATK
         globals()["ammoATK"] = sum(val for val, _ in effect_dict.get(("箭矢/彈藥ATK", ""), []))
         #武器精煉R右L左
@@ -2593,7 +2615,11 @@ class ItemSearchApp(QWidget):
 
         #武器體型修正
         Weaponpunish = 1 if Ignore_size == 100 else get_size_penalty(weapon_class, target_size)
-            
+        #取得武器小中大體型懲罰
+        globals()["weapon_weapon_size0"] = get_size_penalty(weapon_class, 0)*100
+        globals()["weapon_weapon_size1"] = get_size_penalty(weapon_class, 1)*100
+        globals()["weapon_weapon_size2"] = get_size_penalty(weapon_class, 2)*100
+
         #print(f"Ignore_size:{Ignore_size}") 
         #print(f"武器體型修正:{Weaponpunish}")   
         #(精煉武器ATK*體型懲罰)+箭矢彈藥ATK
@@ -2873,8 +2899,8 @@ class ItemSearchApp(QWidget):
                         #(潛擊)+(孢子)+(撼動)+(聖油)
                         special_away_BUFF = max(1, sneak_attack_buff + SPORE_attack_buff + RUSH_attack_buff + OLEUM_attack_buff)
 
-                        print(f"special_away_BUFF:{special_away_BUFF}")
-                        print(f"special_melee_BUFF:{special_melee_BUFF}")
+                        #print(f"special_away_BUFF:{special_away_BUFF}")
+                        #print(f"special_melee_BUFF:{special_melee_BUFF}")
                         if weapon_class in (11,13,14,17,18,19,20,21):#DEX系
                             final_damage = apply_stepwise_percent_mode(
                                 #最終ATK初始值
@@ -2904,7 +2930,7 @@ class ItemSearchApp(QWidget):
                                 #屬性紋章 風水火地
                                 (attribute_seal_buff,"raw")
                             )
-                            print(f"技能爆擊最終傷害: {final_damage}")
+                            #print(f"技能爆擊最終傷害: {final_damage}")
                         else:#STR系
                             final_damage = apply_stepwise_percent_mode(
                                 #最終ATK初始值
@@ -2938,7 +2964,7 @@ class ItemSearchApp(QWidget):
                                 #屬性紋章 風水火地
                                 (attribute_seal_buff,"raw")
                             )
-                            print(f"技能爆擊最終傷害: {final_damage}")
+                            #print(f"技能爆擊最終傷害: {final_damage}")
                         
                     else:
                         raise ValueError(f"未知的攻擊類型: {attack_type}")
@@ -3043,7 +3069,7 @@ class ItemSearchApp(QWidget):
          
         #=========================魔法各增傷計算顯示區=======================
         #print(f"前MATK: {MATKF} 後MATK:{MATKC} 武器MATK:{MATK_Mweapon} S.MATK:{SMATK_total}")  
-        print(f"打擊次數：{len(results)}")        
+        #print(f"打擊次數：{len(results)}")        
         result.append(f"{pad_label('使用技能:')}{selected_skill_name}")
         if not results:
             result.append("❌ 無法計算技能傷害，請檢查公式與變數")
@@ -6489,30 +6515,47 @@ class ItemSearchApp(QWidget):
         else:
             print("⚠️ 模板中沒有 Skill 區塊或格式不正確")
 
-        # === 根據 weapon_mapping 更新 Weapon ===
+        # === 根據 weapon_mapping 更新 Weapon===
         weapon_data = new_data.get("Weapon", {})
         if weapon_data:
             for var_name, weapon_key in weapon_mapping.items():
                 if var_name in context:
                     new_value = context[var_name]
 
-                    # weapon_key 可能是單層或雙層 key
-                    if isinstance(weapon_key, tuple) and len(weapon_key) == 2:
-                        first, second = weapon_key
-                        if first in weapon_data and isinstance(weapon_data[first], dict):
-                            old_value = weapon_data[first].get(second, None)
-                            weapon_data[first][second] = new_value
-                            print(f"🔄 Weapon[{first}][{second}] 從 {old_value} → {new_value}")
-                        else:
-                            print(f"⚠️ Weapon 中沒有 {first} 層級，略過。")
+                    # 正規化成多層鍵列表
+                    if isinstance(weapon_key, (tuple, list)):
+                        keys = list(weapon_key)
                     else:
-                        old_value = weapon_data.get(weapon_key, None)
-                        weapon_data[weapon_key] = new_value
-                        print(f"🔄 Weapon[{weapon_key}] 從 {old_value} → {new_value}")
+                        keys = [weapon_key]
+
+                    # 先取舊值（不建立缺失的中間層）
+                    cur = weapon_data
+                    old_value = None
+                    found = True
+                    for k in keys[:-1]:
+                        if isinstance(cur, dict) and k in cur:
+                            cur = cur[k]
+                        else:
+                            found = False
+                            break
+                    if found and isinstance(cur, dict) and keys[-1] in cur:
+                        old_value = cur[keys[-1]]
+
+                    # 設定新值（必要時建立中間層）
+                    cur = weapon_data
+                    for k in keys[:-1]:
+                        if k not in cur or not isinstance(cur[k], dict):
+                            cur[k] = {}
+                        cur = cur[k]
+                    cur[keys[-1]] = new_value
+
+                    path_str = "][".join(map(str, keys))
+                    print(f"🔄 Weapon[{path_str}] 從 {old_value} → {new_value}")
                 else:
                     print(f"⚠️ 找不到變數：{var_name}（對應 Weapon[{weapon_key}]），略過。")
         else:
             print("⚠️ 模板中沒有 Weapon 區塊。")
+
 
         # === 根據 SubWeapon_mapping 更新 SubWeapon ===
         subweapon_data = new_data.get("SubWeapon", {})
