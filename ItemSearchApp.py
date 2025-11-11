@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.0.13-251111"
+Version = "v0.0.14-251111"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -35,11 +35,21 @@ class InitWorker(QThread):
         builtins.print = custom_print
 
         try:
-            print("開始載入資料...")
+            #print("開始載入資料...")
             data = None
             if self.app_instance:
-                data = self.app_instance.dataloading()
-            print("載入完成！")
+                """
+                mode:
+                  - "auto_missing"  : 只有在檔案缺失時才嘗試線上下載；失敗則回退本地流程（預設）
+                  - "online_prefer" : 優先使用線上（兩檔都嘗試下載覆蓋）；失敗再回退本地
+                  - "online_only"   : 只用線上來源；但若本地已存在就不下載。缺檔才下載；失敗不回退本地
+                  - "local_only"    : 完全不碰網路；若缺檔才走本地解譯
+                  - "local_rebuild" : 強制本地重建（刪除既有 lua 後重建；不碰網路）
+                需求：專案中已定義 decompile_lub(), parse_lub_file(), self.parse_equipment_blocks()
+                """
+                data = self.app_instance.dataloading(mode="online_only")
+
+            #print("載入完成！")
             self.done_signal.emit(data) 
         except Exception as e:
             print(f"初始化發生錯誤：{e}")
@@ -5159,48 +5169,147 @@ class ItemSearchApp(QWidget):
         #self.custom_calc_box.setPlainText("\n".join(new_output))
 
 
-    def dataloading(self):
-        self.current_file = None  # 尚未開啟任何檔案
-        lub_path = r"C:\Program Files (x86)\Gravity\RagnarokOnline\System\iteminfo_new.lub"
-        lua_output = r"data/iteminfo_new.lua"
+    def dataloading(self, mode: str = "local_only"):
+        """
+        mode:
+          - "auto_missing"  : 只有在檔案缺失時才嘗試線上下載；失敗則回退本地流程（預設）
+          - "online_prefer" : 優先使用線上（兩檔都嘗試下載覆蓋）；失敗再回退本地
+          - "online_only"   : 只用線上來源；但若本地已存在就不下載。缺檔才下載；失敗不回退本地
+          - "local_only"    : 完全不碰網路；若缺檔才走本地解譯
+          - "local_rebuild" : 強制本地重建（刪除既有 lua 後重建；不碰網路）
+        需求：專案中已定義 decompile_lub(), parse_lub_file(), self.parse_equipment_blocks()
+        """
+        import os, sys, re, subprocess, time
+        from urllib.request import urlopen, Request
+        from urllib.error import URLError, HTTPError
 
-        # 如果 lua 檔案不存在，就執行反編譯
-        if not os.path.exists(lua_output):
-            print(f"⚠️ 找不到 {lua_output}，開始反編譯 {lub_path} ...")
-            if not decompile_lub(lub_path, lua_output):
-                print("❌ 反編譯失敗，無法繼續")
-                return
-        else:
-            print(f"✅ 找到 {lua_output}，跳過反編譯")
+        self.current_file = None
 
-        # 讀取資料
-        self.parsed_items = parse_lub_file(lua_output)#讀取物品名稱
+        # === 線上來源（已整理好的 Lua） ===
+        ONLINE_ITEMINFO_URL = "https://z2911902.github.io/ROItemSearchApp/data/iteminfo_new.lua"
+        ONLINE_EQUIP_URL    = "https://z2911902.github.io/ROItemSearchApp/data/EquipmentProperties.lua"
 
-        import shutil
+        # === 路徑設定 ===
         if getattr(sys, 'frozen', False):
             BASE_DIR = os.path.dirname(sys.executable)
         else:
             BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-        equipment_lua_path = "data/EquipmentProperties.lua"
-        # === 設定路徑 ===
-        GRFCL_EXE = os.path.join(BASE_DIR, "APP", "GrfCL.exe")
-        GRF_PATH = r"C:\Program Files (x86)\Gravity\RagnarokOnline\data.grf"
-        UNLUAC_JAR = os.path.join(BASE_DIR, "APP", "unluac.jar")
-        INPUT_FILE = os.path.join(BASE_DIR, "data", "LuaFiles514", "Lua Files", "EquipmentProperties", "EquipmentProperties.lub")
-        OUTPUT_FOLDER = os.path.join(BASE_DIR, "data")
-        OUTPUT_FILE = os.path.join(OUTPUT_FOLDER, "EquipmentProperties.lua")
+        data_dir = os.path.join(BASE_DIR, "data")
+        os.makedirs(data_dir, exist_ok=True)
+        iteminfo_path      = os.path.join(data_dir, "iteminfo_new.lua")
+        equipment_lua_path = os.path.join(data_dir, "EquipmentProperties.lua")
+
+        # === 內嵌小工具 ===
+        def _fmt_bytes(n: int) -> str:
+            if n < 1024: return f"{n} B"
+            if n < 1024**2: return f"{n/1024:.1f} KB"
+            if n < 1024**3: return f"{n/1024**2:.2f} MB"
+            return f"{n/1024**3:.2f} GB"
+
+        def _progress_percent_line(done, total, speed_bps):
+            if total and total > 0:
+                percent = done / total * 100.0
+                if speed_bps and speed_bps > 0:
+                    eta = max(int((total - done) / speed_bps), 0)
+                    return f"{percent:6.2f}%  { _fmt_bytes(done) } / { _fmt_bytes(total) }  { _fmt_bytes(int(speed_bps)) }/s  ETA {eta}s"
+                else:
+                    return f"{percent:6.2f}%  { _fmt_bytes(done) } / { _fmt_bytes(total) }"
+            else:
+                if speed_bps and speed_bps > 0:
+                    return f"--.--%  { _fmt_bytes(done) } / ?  { _fmt_bytes(int(speed_bps)) }/s"
+                else:
+                    return f"--.--%  { _fmt_bytes(done) } / ?"
+
+        def _download_with_progress(url: str, dest_path: str, timeout=30) -> bool:
+            import time
+            print(f"🌐 下載：{url}")
+            req = Request(url, headers={"User-Agent": "ROItemSearchApp-Updater/1.2"})
+            try:
+                with urlopen(req, timeout=timeout) as resp:
+                    # 取得 Content-Length（可能沒有）
+                    try:
+                        total = getattr(resp, "length", None) or int(resp.getheader("Content-Length") or 0)
+                    except Exception:
+                        total = 0
+
+                    tmp = dest_path + ".tmp"
+                    start = time.time()
+                    done = 0
+                    chunk = 64 * 1024  # 64KB
+
+                    with open(tmp, "wb") as f:
+                        while True:
+                            data = resp.read(chunk)
+                            if not data:
+                                break
+                            f.write(data)
+                            done += len(data)
+
+                            # 計算並用「同一行覆寫」呈現（與 parse_lub_file 的做法一致）
+                            elapsed = max(time.time() - start, 1e-6)
+                            speed = done / elapsed
+                            line = _progress_percent_line(done, total, speed)
+                            print(line, end="\r")  # 👈 只這行關鍵：同一行覆寫
+
+                    print()  # 👈 下載結束補一個換行
+
+                    # 基本健檢：避免 404 HTML
+                    try:
+                        with open(tmp, "rb") as tf:
+                            head = tf.read(4096).decode("utf-8", errors="ignore").lower()
+                            if "<html" in head:
+                                print("❌ 下載內容疑似 HTML 錯誤頁，放棄覆蓋")
+                                try: os.remove(tmp)
+                                except: pass
+                                return False
+                    except Exception as e:
+                        print(f"⚠️ 健檢失敗（但檔案已下載）：{e}")
+
+                    os.replace(tmp, dest_path)
+                    print(f"✅ 已覆蓋：{os.path.relpath(dest_path, BASE_DIR)}  (總計 { _fmt_bytes(done) })")
+                    return True
+
+            except (URLError, HTTPError) as e:
+                print(f"❌ 下載失敗：{e}")
+            except Exception as e:
+                print(f"❌ 下載例外：{e}")
+            return False
 
 
-        # === 從 GRF 解壓 LUB ===
+
+        def _looks_like_lua_quick(path: str) -> bool:
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    txt = f.read(4096)
+                if "<html" in txt.lower():
+                    return False
+                return any(k in txt for k in ("return", "=", "{", "ItemInfo", "EquipmentProperties"))
+            except:
+                return False
+
+        def _try_online_for(targets):
+            """targets: [(url, dest_path), ...]；回傳是否成功至少一個"""
+            updated = False
+            for url, dest in targets:
+                ok = _download_with_progress(url, dest)
+                if ok and not _looks_like_lua_quick(dest):
+                    print(f"⚠️ 檔案格式可疑（非 Lua？）：{os.path.basename(dest)}")
+                updated = updated or ok
+            return updated
+
+        # === 本地（GRF 解出/反編譯/整理）流程子函式（供回退/重建用） ===
+        GRFCL_EXE    = os.path.join(BASE_DIR, "APP", "GrfCL.exe")
+        GRF_PATH     = r"C:\Program Files (x86)\Gravity\RagnarokOnline\data.grf"
+        UNLUAC_JAR   = os.path.join(BASE_DIR, "APP", "unluac.jar")
+        INPUT_FILE   = os.path.join(BASE_DIR, "data", "LuaFiles514", "Lua Files", "EquipmentProperties", "EquipmentProperties.lub")
+        OUTPUT_FILE  = equipment_lua_path
+
         def extract_lub_from_grf():
-            #print("🔍 檢查 GRFCL_EXE 實際路徑：", GRFCL_EXE)
-            #print("🔍 存在嗎？", os.path.exists(GRFCL_EXE))
             if not os.path.exists(GRFCL_EXE):
                 print(f" 找不到 GrfCL.exe：{GRFCL_EXE}")
                 return False
-
-            print(" 正在從 GRF 解壓 LUB 檔...")
+            print("📦 正在從 GRF 解壓 LUB 檔...")
             result = subprocess.run([
                 GRFCL_EXE,
                 "-open", GRF_PATH,
@@ -5208,107 +5317,192 @@ class ItemSearchApp(QWidget):
                 "data\\LuaFiles514\\Lua Files\\EquipmentProperties\\EquipmentProperties.lub",
                 "-exit"
             ], cwd=BASE_DIR, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            #print("stdout:", result.stdout)
-            #print("stderr:", result.stderr)
-
             if result.returncode != 0:
                 print(" 解壓失敗：")
-                print(result.stderr)
-                return False
+                print(result.stderr); return False
+            print(" 解壓完成"); return True
 
-            print(" 解壓完成")
-            return True
-
-        # === 使用 unluac.jar 反編譯 ===
         def run_unluac(lub_file, lua_file):
-            os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+            os.makedirs(data_dir, exist_ok=True)
             with open(lua_file, "w", encoding="utf-8") as out:
                 subprocess.run(["java", "-jar", UNLUAC_JAR, lub_file], stdout=out, stderr=subprocess.DEVNULL)
 
-        # === 清理格式 ===
-        def split_local_variables(code):
+        def split_local_variables(code: str) -> str:
             pattern = re.compile(r'^(\s*)local\s+([\w\s,]+?)\s*=\s*([^\n]+)$', re.MULTILINE)
-            def replacer(match):
-                indent = match.group(1)
-                var_str = match.group(2)
-                val_str = match.group(3)
-                vars = [v.strip() for v in var_str.split(',')]
-                vals = [v.strip() for v in val_str.split(',')]
+            def replacer(m):
+                indent, var_str, val_str = m.group(1), m.group(2), m.group(3)
+                vars_ = [v.strip() for v in var_str.split(',')]
+                vals_ = [v.strip() for v in val_str.split(',')]
                 lines = []
-                for i, var in enumerate(vars):
-                    val = vals[i] if i < len(vals) else 'nil'
+                for i, var in enumerate(vars_):
+                    val = vals_[i] if i < len(vals_) else 'nil'
                     lines.append(f"{indent}local {var} = {val}")
                 return '\n'.join(lines)
             return pattern.sub(replacer, code)
 
-        def flatten_array_fields(code):
+        def flatten_array_fields(code: str) -> str:
             pattern = re.compile(r'^(\s*)(\w+)\s*=\s*\{\s*\n((?:\s*\d+\s*,?\n)+)(\s*)\}', re.MULTILINE)
-            def replacer(match):
-                indent = match.group(1)
-                key = match.group(2)
-                values_block = match.group(3)
+            def replacer(m):
+                indent, key, values_block = m.group(1), m.group(2), m.group(3)
                 values = [v.strip().strip(',') for v in values_block.strip().splitlines() if v.strip()]
-                flat = ', '.join(values)
-                return f"{indent}{key} = {{ {flat} }}"
+                return f"{indent}{key} = {{ {', '.join(values)} }}"
             return pattern.sub(replacer, code)
 
-        def clean_lua_format(lua_file):
-            with open(lua_file, "r", encoding="utf-8") as f:
-                code = f.read()
-            code = split_local_variables(code)
-            code = flatten_array_fields(code)
-             # ✅ 新增：移除不需要的區塊
-            code = remove_specific_blocks(code, ["SkillGroup", "RefiningBonus", "GradeBonus"])
-            with open(lua_file, "w", encoding="utf-8") as f:
-                f.write(code)
-
-        def remove_specific_blocks(code, block_names):
+        def remove_specific_blocks(code: str, block_names) -> str:
             for name in block_names:
-                # 移除整個形如：Name = { ... } 的區塊（非巢狀處理）
                 pattern = re.compile(rf'{name}\s*=\s*\{{.*?\n\}}', re.DOTALL)
                 code = pattern.sub('', code)
             return code
 
-        if not os.path.exists(equipment_lua_path):
-            print("⚠️ 找不到 EquipmentProperties.lua，執行 convert_lub_to_lua.py 生成...")
-            if not extract_lub_from_grf():
-                pass  # 已顯示錯誤
-            elif not os.path.exists(INPUT_FILE):
-                print(f" 找不到檔案: {INPUT_FILE}")
-            elif not os.path.exists(UNLUAC_JAR):
-                print(f" 找不到 unluac.jar，請放在 APP 資料夾中")
-            else:
-                print(" 正在反編譯...")
-                run_unluac(INPUT_FILE, OUTPUT_FILE)
-                print(" 正在整理格式...")
-                clean_lua_format(OUTPUT_FILE)
-                print("✅ EquipmentProperties.lua 已成功生成")
-                if getattr(sys, 'frozen', False):
-                    base_dir = os.path.dirname(sys.executable)
-                else:
-                    base_dir = os.path.dirname(os.path.abspath(__file__))
+        def clean_lua_format(lua_file: str):
+            with open(lua_file, "r", encoding="utf-8") as f:
+                code = f.read()
+            code = split_local_variables(code)
+            code = flatten_array_fields(code)
+            code = remove_specific_blocks(code, ["SkillGroup", "RefiningBonus", "GradeBonus"])
+            with open(lua_file, "w", encoding="utf-8") as f:
+                f.write(code)
 
-                temp_folder = os.path.join(base_dir, "data", "LuaFiles514")
+        def local_rebuild_all():
+            """強制本地重建兩檔（刪舊→反編譯/整理）。"""
+            # 1) iteminfo
+            lub_path = r"C:\Program Files (x86)\Gravity\RagnarokOnline\System\iteminfo_new.lub"
+            if os.path.exists(iteminfo_path):
+                try: os.remove(iteminfo_path)
+                except Exception as e: print(f"⚠️ 無法刪除 {iteminfo_path}：{e}")
+            print(f"⚙️ 反編譯 {lub_path} → {iteminfo_path}")
+            if not decompile_lub(lub_path, iteminfo_path):
+                print("❌ 反編譯 iteminfo 失敗"); return False
+
+            # 2) EquipmentProperties
+            if os.path.exists(equipment_lua_path):
+                try: os.remove(equipment_lua_path)
+                except Exception as e: print(f"⚠️ 無法刪除 {equipment_lua_path}：{e}")
+
+            print("📦 準備解出 EquipmentProperties.lub...")
+            if not extract_lub_from_grf():
+                print("❌ 從 GRF 解出失敗"); return False
+            if not os.path.exists(INPUT_FILE):
+                print(f"❌ 找不到檔案: {INPUT_FILE}"); return False
+            if not os.path.exists(UNLUAC_JAR):
+                print(f"❌ 找不到 unluac.jar，請放在 APP 資料夾中"); return False
+
+            print("🧩 正在反編譯 unluac...")
+            run_unluac(INPUT_FILE, equipment_lua_path)
+            print("🧹 正在整理 Lua 格式...")
+            clean_lua_format(equipment_lua_path)
+
+            temp_folder = os.path.join(BASE_DIR, "data", "LuaFiles514")
+            if os.path.exists(temp_folder):
+                try:
+                    import shutil; shutil.rmtree(temp_folder)
+                    print(f"🗑️ 已刪除暫存資料夾")
+                except Exception as e:
+                    print(f"⚠️ 刪除暫存資料夾失敗：{e}")
+            return True
+
+        def local_fill_missing():
+            """本地方式補齊缺檔（有就不動）。"""
+            # iteminfo
+            if not os.path.exists(iteminfo_path):
+                lub_path = r"C:\Program Files (x86)\Gravity\RagnarokOnline\System\iteminfo_new.lub"
+                print(f"⚙️ 反編譯 {lub_path} → {iteminfo_path}")
+                if not decompile_lub(lub_path, iteminfo_path):
+                    print("❌ 反編譯 iteminfo 失敗"); return False
+            else:
+                print("✅ iteminfo_new.lua 已存在，略過反編譯")
+
+            # equipment
+            if not os.path.exists(equipment_lua_path):
+                print("📦 準備解出 EquipmentProperties.lub...")
+                if not extract_lub_from_grf():
+                    print("❌ 從 GRF 解出失敗"); return False
+                if not os.path.exists(INPUT_FILE):
+                    print(f"❌ 找不到檔案: {INPUT_FILE}"); return False
+                if not os.path.exists(UNLUAC_JAR):
+                    print(f"❌ 找不到 unluac.jar，請放在 APP 資料夾中"); return False
+
+                print("🧩 正在反編譯 unluac...")
+                run_unluac(INPUT_FILE, equipment_lua_path)
+                print("🧹 正在整理 Lua 格式...")
+                clean_lua_format(equipment_lua_path)
+
+                temp_folder = os.path.join(BASE_DIR, "data", "LuaFiles514")
                 if os.path.exists(temp_folder):
                     try:
-                        shutil.rmtree(temp_folder)
-                        print(f"✅ 已刪除暫存資料夾")
+                        import shutil; shutil.rmtree(temp_folder)
+                        print(f"🗑️ 已刪除暫存資料夾")
                     except Exception as e:
                         print(f"⚠️ 刪除暫存資料夾失敗：{e}")
-                else:
-                    print(f"⚠️ 找不到暫存資料夾：{temp_folder}")
+            else:
+                print("✅ EquipmentProperties.lua 已存在，略過編譯處理")
+            return True
+
+        # === 判斷缺檔 ===
+        miss_item  = not os.path.exists(iteminfo_path)
+        miss_equip = not os.path.exists(equipment_lua_path)
+
+        # === 模式分流 ===
+        if mode == "online_prefer":
+            # 覆蓋下載（不檢查是否已存在）
+            _try_online_for([
+                (ONLINE_ITEMINFO_URL, iteminfo_path),
+                (ONLINE_EQUIP_URL,    equipment_lua_path)
+            ])
+            have_both = os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)
+            if not have_both:
+                print("⚠️ 線上仍不齊全 → 回退本地補齊")
+                if not local_fill_missing():
+                    print("❌ 本地補齊失敗"); return
+        elif mode == "online_only":
+            # 只線上：若本地已存在就不下載；只有缺檔才下載。失敗則停止。
+            targets = []
+            if miss_item:  targets.append((ONLINE_ITEMINFO_URL, iteminfo_path))
+            if miss_equip: targets.append((ONLINE_EQUIP_URL,    equipment_lua_path))
+            if targets:
+                _try_online_for(targets)
+            # 下載後再檢查一次，若仍缺則停止（不回退本地）
+            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)):
+                print("❌ online_only 模式：仍有檔案缺失，停止（不回退本地）")
+                return
+        elif mode == "auto_missing":
+            if miss_item or miss_equip:
+                targets = []
+                if miss_item:  targets.append((ONLINE_ITEMINFO_URL, iteminfo_path))
+                if miss_equip: targets.append((ONLINE_EQUIP_URL,    equipment_lua_path))
+                _try_online_for(targets)
+            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)):
+                if not local_fill_missing():
+                    print("❌ 本地補齊失敗"); return
+        elif mode == "local_only":
+            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)):
+                if not local_fill_missing():
+                    print("❌ 本地補齊失敗"); return
+        elif mode == "local_rebuild":
+            if not local_rebuild_all():
+                print("❌ 強制本地重建失敗"); return
         else:
-            print("✅ 找到 EquipmentProperties.lua，跳過編譯處理")
+            print(f"ℹ️ 未知模式 {mode}，使用預設 auto_missing")
+            if miss_item or miss_equip:
+                targets = []
+                if miss_item:  targets.append((ONLINE_ITEMINFO_URL, iteminfo_path))
+                if miss_equip: targets.append((ONLINE_EQUIP_URL,    equipment_lua_path))
+                _try_online_for(targets)
+            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)):
+                if not local_fill_missing():
+                    print("❌ 本地補齊失敗"); return
 
-
-        # 載入 EquipmentProperties.lub
-        
-        with open(r"data/EquipmentProperties.lua", "r", encoding="utf-8") as f:
+        # === 載入（無論來源） ===
+        print("📖 載入 iteminfo_new.lua 與 EquipmentProperties.lua...")
+        self.parsed_items = parse_lub_file(iteminfo_path)
+        with open(equipment_lua_path, "r", encoding="utf-8") as f:
             content = f.read()
         self.equipment_data = self.parse_equipment_blocks(content)
-        
+        print("🎉 載入完成")
         return self.parsed_items
-    
+
+
+
     def __init__(self):
         
         #self.dataloading()#讀取並載入物品跟裝備能力
@@ -5952,7 +6146,7 @@ class ItemSearchApp(QWidget):
         #add_labeled_row(middle_layout, "鑲嵌孔數", self.slot_field)
         #middle_layout.addWidget(QLabel("物品說明"))
         middle_layout.addWidget(self.desc_text)
-        self.btn_recompile = QPushButton("重新編譯(需先更新RO主程式。)")
+        self.btn_recompile = QPushButton("重新取得物品列表(線上更新)")
         self.btn_recompile.clicked.connect(self.recompile)
         middle_layout.addWidget(self.btn_recompile)
         #self.btn_recompile.setVisible(False)#重新編譯先隱藏
