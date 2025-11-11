@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.0.12-251104"
+Version = "v0.0.13-251111"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -599,8 +599,90 @@ def load_skill_map(filepath=None):
         skill_map_all = {}
         print(f"載入技能列表失敗：{e}")
 
-
 load_skill_map() #讀取SKILL列表
+
+#動態下拉式選單
+import re
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QComboBox
+
+class MultiComboField(QWidget):
+    def __init__(self, options, parent=None):
+        """
+        options: list[(label, data)]
+                 例如 [("無形",0),("不死",1),...,("龍族",9)]
+                 可包含 ("", None) 作為空白選項
+        """
+        super().__init__(parent)
+        self.options = options
+        self.combos: list[QComboBox] = []
+
+        root = QHBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(6)
+
+        self.box_layout = QHBoxLayout()
+        self.box_layout.setContentsMargins(0, 0, 0, 0)
+        self.box_layout.setSpacing(6)
+        root.addLayout(self.box_layout)
+
+        self.add_btn = QPushButton("+")
+        self.add_btn.setFixedWidth(28)
+        self.add_btn.clicked.connect(self.add_combo)
+        root.addWidget(self.add_btn)
+
+        # 預設先放一個下拉
+        self.add_combo()
+
+    def _make_combo(self) -> QComboBox:
+        cb = QComboBox()
+        for label, data in self.options:
+            cb.addItem(label, data)
+        return cb
+
+    def add_combo(self, preset_data=None):
+        cb = self._make_combo()
+        if preset_data is not None:
+            idx = cb.findData(preset_data)
+            if idx < 0 and isinstance(preset_data, str):
+                idx = cb.findText(preset_data)
+            if idx >= 0:
+                cb.setCurrentIndex(idx)
+        self.box_layout.addWidget(cb)
+        self.combos.append(cb)
+        return cb
+
+    def set_values(self, values):
+        """values: 例如 [0,5,9] 或 ['無形','不死'] 或混合"""
+        for cb in self.combos:
+            cb.deleteLater()
+        self.combos.clear()
+
+        if not values:
+            self.add_combo()
+            return
+
+        for v in values:
+            self.add_combo(v)
+
+    def get_values(self):
+        """回傳去重後的 userData 陣列（忽略空白/None）"""
+        vals = []
+        for cb in self.combos:
+            data = cb.currentData()
+            if data is None or str(data) == "":
+                continue
+            vals.append(data)
+
+        uniq, seen = [], set()
+        for v in vals:
+            if v not in seen:
+                seen.add(v)
+                uniq.append(v)
+        return uniq
+
+
+
+
 import sys
 import csv
 from PySide6.QtWidgets import (
@@ -816,8 +898,27 @@ class CSVEditor(QMainWindow):
 
             # 建立編輯欄位（例：QLineEdit 或 QComboBox）
             if header.lower() == "attack_type":
+                edit_field = QComboBox()                
+                edit_field.addItem("物理", "physical")
+                edit_field.addItem("魔法", "magic")
+            elif header.lower() in ("element","combo_element"):
                 edit_field = QComboBox()
-                edit_field.addItems(["magic", "physical"])
+                element_options = [
+                    ("", None),
+                    ("無", 0), ("水", 1), ("地", 2), ("火", 3), ("風", 4),
+                    ("毒", 5), ("聖", 6), ("暗", 7), ("念", 8), ("不死", 9),
+                ]
+                for label, code in element_options:
+                    edit_field.addItem(label, code)
+            
+            elif header.lower() == "monster_race":
+                race_options = [
+                    ("", None),  # 空白
+                    ("無形", 0), ("不死", 1), ("動物", 2), ("植物", 3), ("昆蟲", 4),
+                    ("魚貝", 5), ("惡魔", 6), ("人形", 7), ("天使", 8), ("龍族", 9),
+                ]
+                edit_field = MultiComboField(race_options)
+
             else:
                 edit_field = QLineEdit()
                 if header.lower() in ["id", "code"]:
@@ -846,21 +947,82 @@ class CSVEditor(QMainWindow):
 
 
     def update_fields(self, index):
-        """更新欄位內容"""
         if index < 0 or index >= len(self.filtered_rows):
             return
         row = self.filtered_rows[index]
         for i, header in enumerate(self.headers):
-            if header.lower() == "name":
+            key = header.strip().lower()
+            if key == "name":
                 continue
             if header in self.field_edits:
                 value = row[i] if i < len(row) else ""
                 widget = self.field_edits[header]
+
+                # monster_race（MultiComboField，多值）
+                if isinstance(widget, MultiComboField) and key == "monster_race":
+                    txt = str(value).strip()
+                    if not txt:
+                        widget.set_values([])  # 顯示 1 個空白下拉
+                    else:
+                        import re
+                        parts = re.split(r'[,\|;/\s]+', txt)
+                        vals = []
+                        for p in parts:
+                            if not p:
+                                continue
+                            try:
+                                vals.append(int(float(p)))   # 數字優先
+                            except:
+                                vals.append(p)               # 兼容舊中文
+                        widget.set_values(vals)
+                    continue
+
+                # element（單值 QComboBox）
+                if isinstance(widget, QComboBox) and key in ("element","combo_element"):
+                    txt = str(value).strip()
+                    if txt == "":
+                        idx = widget.findData(None)  # 空白
+                    else:
+                        try:
+                            num = int(float(txt))
+                            idx = widget.findData(num)
+                        except:
+                            # 舊資料若是中文
+                            idx = widget.findText(txt)
+                    widget.setCurrentIndex(idx if idx >= 0 else widget.findData(None))
+                    continue
+
+                if isinstance(widget, QComboBox) and key == "attack_type":
+                    txt = ("" if value is None else str(value)).strip()
+                    if txt == "":
+                        # 若下拉有空白選項
+                        idx = widget.findData(None)
+                        if idx < 0:
+                            idx = widget.findText("")
+                    else:
+                        # 先找英文 userData（magic/physical）
+                        idx = widget.findData(txt.lower())
+                        if idx < 0:
+                            # 舊資料可能是中文 → 映射到英文再找
+                            zh2en = {"魔法": "magic", "物理": "physical"}
+                            mapped = zh2en.get(txt)
+                            if mapped:
+                                idx = widget.findData(mapped)
+                        if idx < 0:
+                            # 最後相容：用顯示文字找
+                            idx = widget.findText(txt)
+                    widget.setCurrentIndex(idx if idx >= 0 else 0)
+                    continue
+
+                # 其它欄位照舊
                 if isinstance(widget, QComboBox):
-                    index = widget.findText(value)
-                    widget.setCurrentIndex(index if index >= 0 else 0)
+                    idx = widget.findText(str(value))
+                    widget.setCurrentIndex(idx if idx >= 0 else 0)
                 else:
-                    widget.setText(value)
+                    widget.setText(str(value))
+
+
+
 
 
     def save_changes(self, close_after=True):
@@ -869,24 +1031,52 @@ class CSVEditor(QMainWindow):
             QMessageBox.warning(self, "錯誤", "請先選擇一個 Name")
             return
 
-        # 編輯 filtered 的 row
         row = self.filtered_rows[index]
-        # 這裡把 UI 的內容寫進 row
         for i, header in enumerate(self.headers):
-            if header.lower() == "name":
+            key = header.strip().lower()
+            if key == "name":
                 continue
             if header in self.field_edits:
                 widget = self.field_edits[header]
+
+                # 只讀跳過
+                from PySide6.QtWidgets import QLineEdit, QComboBox
                 if isinstance(widget, QLineEdit) and widget.isReadOnly():
                     continue
-                if isinstance(widget, QComboBox):
+
+                # ✅ 強制規格：element / monster_race 只寫數字；沒選就空白
+                if key in ("element","combo_element") and isinstance(widget, QComboBox):
+                    data = widget.currentData()
+                    new_value = "" if (data is None or str(data) == "") else str(int(data))
+
+                elif key == "monster_race" and hasattr(widget, "get_values"):
+                    vals = widget.get_values()  # e.g. [0,5,9] 或 []
+                    # 過濾成純數字字串
+                    nums = []
+                    for v in vals:
+                        if v is None or str(v).strip() == "":
+                            continue
+                        try:
+                            nums.append(str(int(v)))
+                        except:
+                            # 若意外拿到中文，直接忽略以避免寫中文
+                            continue
+                    new_value = ",".join(nums) if nums else ""
+
+                # 其他欄位照舊；attack_type 依你規格存英文
+                elif isinstance(widget, QComboBox) and key == "attack_type":
+                    new_value = widget.currentData()  # "magic"/"physical"
+                elif isinstance(widget, QComboBox):
                     new_value = widget.currentText()
                 else:
                     new_value = widget.text()
+
                 if i < len(row):
                     row[i] = new_value
                 else:
                     row.append(new_value)
+
+
         # 這裡很重要：要把這筆 row 寫回 self.data 對應的那一筆
         id_index = self.headers.index("ID")
         row_id = row[id_index]
@@ -906,38 +1096,86 @@ class CSVEditor(QMainWindow):
                 self.close()
         except Exception as e:
             QMessageBox.critical(self, "錯誤", f"儲存失敗：{e}")
-
+        # 讓主畫面即時看到變更，並選到當前編輯的技能
+        self._refresh_and_select_in_main()
 
 
     def closeEvent(self, event):
         try:
-            skill_name = self.search_box.text().strip()
-            if hasattr(self, "app_instance") and self.app_instance and hasattr(self.app_instance, "skill_box"):
-                skill_box = self.app_instance.skill_box
-                if skill_name:
-                    idx = skill_box.findText(skill_name)
-                    if idx != -1:
-                        skill_box.setCurrentIndex(idx)
-                    else:
-                        print(f"[CSVEditor.closeEvent] skill_box 沒有 {skill_name}")
+            self._refresh_and_select_in_main()
         except Exception as e:
-            print(f"[CSVEditor.closeEvent] 回寫技能名稱到 skill_box 失敗：{e}")
+            print(f"[CSVEditor.closeEvent] 刷新/選取失敗：{e}")
 
-        # 重新計算（呼叫主視窗）
+        # 重新計算
         try:
-            if getattr(self, "app_instance", None) and hasattr(self.app_instance, "replace_custom_calc_content"):
-                # 若想強制重算，可先清掉快取狀態
-                setattr(self.app_instance, "_last_calc_state", None)
-                # 直接呼叫（同執行緒）
-                self.app_instance.replace_custom_calc_content()
-                # 若擔心和 UI 事件衝突，也可以改用排入事件佇列的方式：
-                # QMetaObject.invokeMethod(self.app_instance, "replace_custom_calc_content", Qt.QueuedConnection)
-            else:
-                print("[CSVEditor.closeEvent] 找不到 app_instance 或其 replace_custom_calc_content 方法")
+            app = getattr(self, "app_instance", None)
+            if app and hasattr(app, "replace_custom_calc_content"):
+                setattr(app, "_last_calc_state", None)
+                app.replace_custom_calc_content()
         except Exception as e:
             print(f"[CSVEditor.closeEvent] 重新計算失敗：{e}")
 
         super().closeEvent(event)
+
+
+    def _refresh_and_select_in_main(self):
+        """重建主畫面 skill_box，並用目前編輯列的 ID 精準選取。"""
+        try:
+            # 取出編輯器目前指到的那筆資料 ID
+            idx_in_editor = self.name_combo.currentIndex()
+            row_id = None
+            if 0 <= idx_in_editor < len(self.filtered_rows):
+                id_index = self.headers.index("ID")
+                row = self.filtered_rows[idx_in_editor]
+                if id_index < len(row):
+                    row_id = row[id_index]
+
+            app = getattr(self, "app_instance", None)
+            if not app or not hasattr(app, "skill_box"):
+                print("[CSVEditor] 找不到 app_instance 或 skill_box")
+                return
+
+            # 清除主畫面舊的關鍵字，避免被過濾掉
+            if hasattr(app, "skill_filter_input"):
+                app.skill_filter_input.blockSignals(True)
+                app.skill_filter_input.clear()
+                app.skill_filter_input.blockSignals(False)
+
+            # 重建技能清單（需先把主畫面 filter_skills 掛到 self，前面你已做）
+            if hasattr(app, "filter_skills"):
+                app.filter_skills()
+
+            # 用 ID（userData）精準選取；型別不一致時會嘗試轉型
+            if row_id is not None:
+                skill_box = app.skill_box
+                idx = skill_box.findData(row_id)
+
+                if idx == -1:
+                    # 嘗試轉型再找
+                    try_ids = []
+                    try:
+                        try_ids.append(int(row_id))
+                    except:
+                        pass
+                    try_ids.append(str(row_id))
+                    for cand in try_ids:
+                        idx = skill_box.findData(cand)
+                        if idx != -1:
+                            break
+
+                if idx != -1:
+                    skill_box.setCurrentIndex(idx)
+                else:
+                    # 退而求其次，用名稱比對
+                    name_txt = self.name_combo.currentText().strip()
+                    name_idx = skill_box.findText(name_txt)
+                    if name_idx != -1:
+                        skill_box.setCurrentIndex(name_idx)
+                    else:
+                        print(f"[CSVEditor] skill_box 找不到 ID={row_id} 或名稱='{name_txt}'")
+
+        except Exception as e:
+            print(f"[CSVEditor] _refresh_and_select_in_main 失敗：{e}")
 
 
 
@@ -1074,7 +1312,7 @@ def parse_lua_effects_with_variables(
         # === 特殊判斷：若為 P.S = XXX 則直接顯示後面的文字 ===
         if line.startswith("P.S ="):
             comment = line.split("=", 1)[1].strip()
-            results.append(f"P.S：{comment}")
+            results.append(f"📌P.S：{comment}")
             continue
         # 🔽  GetPetRelationship() 替換為傳入的裝備階級
         line = re.sub(r"GetPetRelationship\s*\(\s*\)", str(grade), line)
@@ -1166,13 +1404,13 @@ def parse_lua_effects_with_variables(
 
             try:
                 result = eval(expr, safe_globals, safe_locals)
-                is_true = bool(result)
-                results.append(f"{'✅ if 條件成立' if is_true else '❌ if 條件不成立'} : {if_match.group(1)}")
+                condition_met = bool(result)
+                results.append(f"{'✅ if 條件成立' if condition_met else '❌ if 條件不成立'} : {if_match.group(1)}")
             except Exception as e:
-                is_true = False
+                condition_met = False
                 results.append(f"⚠️ 無法解析條件: {if_match.group(1)}，錯誤: {e}")
 
-            block_stack.append({"active": is_true, "branch_taken": is_true})
+            block_stack.append({"active": condition_met, "branch_taken": condition_met})
             continue
 
         # elseif 判斷
@@ -1202,13 +1440,13 @@ def parse_lua_effects_with_variables(
 
             try:
                 result = eval(expr, safe_globals, safe_locals)
-                is_true = bool(result)
-                results.append(f"{'✅ elseif 條件成立' if is_true else '❌ elseif 條件不成立'} : {expr}")
+                condition_met = bool(result)
+                results.append(f"{'✅ elseif 條件成立' if condition_met else '❌ elseif 條件不成立'} : {expr}")
             except Exception as e:
-                is_true = False
+                condition_met = False
                 results.append(f"⚠️ 無法解析條件: {expr}，錯誤: {e}")
 
-            block_stack.append({"active": is_true, "branch_taken": is_true})
+            block_stack.append({"active": condition_met, "branch_taken": condition_met})
             continue
 
         # else 判斷
@@ -5973,6 +6211,7 @@ class ItemSearchApp(QWidget):
                         self.skill_box.addItem(display_name, key)
 
             self.skill_box.blockSignals(False)
+            self.filter_skills = filter_skills
 
             # 若有項目，自動選第一個並更新顯示
             if self.skill_box.count() > 0:
