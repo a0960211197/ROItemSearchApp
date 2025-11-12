@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.0.14-251111"
+Version = "v0.0.15-251111"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -38,16 +38,10 @@ class InitWorker(QThread):
             #print("開始載入資料...")
             data = None
             if self.app_instance:
-                """
-                mode:
-                  - "auto_missing"  : 只有在檔案缺失時才嘗試線上下載；失敗則回退本地流程（預設）
-                  - "online_prefer" : 優先使用線上（兩檔都嘗試下載覆蓋）；失敗再回退本地
-                  - "online_only"   : 只用線上來源；但若本地已存在就不下載。缺檔才下載；失敗不回退本地
-                  - "local_only"    : 完全不碰網路；若缺檔才走本地解譯
-                  - "local_rebuild" : 強制本地重建（刪除既有 lua 後重建；不碰網路）
-                需求：專案中已定義 decompile_lub(), parse_lub_file(), self.parse_equipment_blocks()
-                """
-                data = self.app_instance.dataloading(mode="online_only")
+                mode = "online_only"
+                if self.app_instance and hasattr(self.app_instance, "get_update_mode"):
+                    mode = self.app_instance.get_update_mode() or "online_only"
+                data = self.app_instance.dataloading(mode=mode)
 
             #print("載入完成！")
             self.done_signal.emit(data) 
@@ -2369,6 +2363,59 @@ def raising_stats(stat_str: str) -> int:
     return pt
 
 
+import json, os
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton
+
+class PreferencesDialog(QDialog):
+    def __init__(self, current_mode: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("偏好設定")
+        self.resize(260, 140)
+
+        layout = QVBoxLayout(self)
+
+        # 模式選單
+        hl = QHBoxLayout()
+        hl.addWidget(QLabel("自動更新模式："))
+        self.mode_combo = QComboBox()
+        # 顯示文字 → 實際值
+        options = [
+            #("自動模式", "auto_missing"),
+            #("優先線上，失敗回退本地 (online_prefer)", "online_prefer"),
+            ("線上來源", "online_only"),
+            ("本機來源", "local_only"),
+            #("強制本地重建 (local_rebuild)", "local_rebuild"),
+        ]
+        for text, val in options:
+            self.mode_combo.addItem(text, userData=val)
+        # 設定目前值
+        idx = self.mode_combo.findData(current_mode or "online_only")
+        self.mode_combo.setCurrentIndex(idx if idx >= 0 else 0)
+
+        hl.addWidget(self.mode_combo)
+        layout.addLayout(hl)
+
+        #說明
+        tip = QLabel("建議使用線上模式，設為本機需要環境有Python跟java環境才可編譯。")
+        tip.setWordWrap(True)
+        layout.addWidget(tip)
+
+        # 按鈕
+        btns = QHBoxLayout()
+        ok_btn = QPushButton("確定")
+        cancel_btn = QPushButton("取消")
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+        btns.addStretch(1)
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+
+    def selected_mode(self) -> str:
+        return self.mode_combo.currentData()
+
+
+
 class ItemSearchApp(QWidget):
     
     def update_window_title(self):
@@ -3487,6 +3534,45 @@ class ItemSearchApp(QWidget):
         #self.custom_calc_box.setPlainText("\n".join(result))
 
 
+    def _config_path(self):
+        # 存在專案 data/ 下
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        data_dir = os.path.join(base_dir, "data")
+        os.makedirs(data_dir, exist_ok=True)
+        return os.path.join(data_dir, "config.json")
+
+    def load_config(self):
+        self.update_mode = "update_mode"  # 預設
+        try:
+            with open(self._config_path(), "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            self.update_mode = cfg.get("update_mode", self.update_mode)
+        except Exception:
+            pass  # 第一次沒有檔案就用預設
+
+    def save_config(self):
+        cfg = {"update_mode": getattr(self, "update_mode", "local_only")}
+        try:
+            with open(self._config_path(), "w", encoding="utf-8") as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"儲存設定失敗：{e}")
+
+    def get_update_mode(self) -> str:
+        # 提供給 InitWorker 調用
+        if not hasattr(self, "update_mode"):
+            self.load_config()
+        return self.update_mode or "local_only"
+
+    def open_preferences(self):
+        # 確保先有目前設定
+        self.load_config()
+        dlg = PreferencesDialog(current_mode=self.update_mode, parent=self)
+        if dlg.exec() == QDialog.Accepted:
+            self.update_mode = dlg.selected_mode()
+            self.save_config()
+            # 你也可以視需要在這裡提示「下次啟動生效」或直接重新初始化資料
+            QMessageBox.information(self, "完成", f"已設定模式為：{self.update_mode}")
 
 
 
@@ -5456,6 +5542,7 @@ class ItemSearchApp(QWidget):
                     print("❌ 本地補齊失敗"); return
         elif mode == "online_only":
             # 只線上：若本地已存在就不下載；只有缺檔才下載。失敗則停止。
+            print(f"編譯方式 : 📦 線上模式")
             targets = []
             if miss_item:  targets.append((ONLINE_ITEMINFO_URL, iteminfo_path))
             if miss_equip: targets.append((ONLINE_EQUIP_URL,    equipment_lua_path))
@@ -5475,6 +5562,7 @@ class ItemSearchApp(QWidget):
                 if not local_fill_missing():
                     print("❌ 本地補齊失敗"); return
         elif mode == "local_only":
+            print(f"編譯方式 📖 本機模式")
             if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)):
                 if not local_fill_missing():
                     print("❌ 本地補齊失敗"); return
@@ -5514,7 +5602,7 @@ class ItemSearchApp(QWidget):
         self.preset_folder = "equip_presets"
         os.makedirs(self.preset_folder, exist_ok=True)
 
-
+        self.load_config()#讀取偏好設定
 
         
         # UI 元件初始化
@@ -6146,7 +6234,7 @@ class ItemSearchApp(QWidget):
         #add_labeled_row(middle_layout, "鑲嵌孔數", self.slot_field)
         #middle_layout.addWidget(QLabel("物品說明"))
         middle_layout.addWidget(self.desc_text)
-        self.btn_recompile = QPushButton("重新取得物品列表(線上更新)")
+        self.btn_recompile = QPushButton("重新取得物品列表")
         self.btn_recompile.clicked.connect(self.recompile)
         middle_layout.addWidget(self.btn_recompile)
         #self.btn_recompile.setVisible(False)#重新編譯先隱藏
@@ -6868,26 +6956,26 @@ class ItemSearchApp(QWidget):
         )   
 
         file_menu.addAction(ROC_save_as_action)
-        '''
+        
         # === 設定選單 ===
         settings_menu = menubar.addMenu("設定")
 
-        preferences_action = QAction("偏好設定()", self)
-        preferences_action.triggered.connect#(self.open_preferences)
+        preferences_action = QAction("偏好設定", self)
+        preferences_action.triggered.connect(self.open_preferences)
         settings_menu.addAction(preferences_action)
 
 
-        # === 說明選單 ===
-        help_menu = menubar.addMenu("說明")
+        # # === 說明選單 ===
+        # help_menu = menubar.addMenu("說明")
 
-        help_action = QAction("使用說明", self)
-        help_action.triggered.connect#(self.show_help)
-        help_menu.addAction(help_action)
+        # help_action = QAction("使用說明", self)
+        # help_action.triggered.connect#(self.show_help)
+        # help_menu.addAction(help_action)
 
-        about_action = QAction("關於", self)
-        about_action.triggered.connect#(self.show_about)
-        help_menu.addAction(about_action)
-        '''
+        # about_action = QAction("關於", self)
+        # about_action.triggered.connect#(self.show_about)
+        # help_menu.addAction(about_action)
+        
         # === 加入選單到主 layout ===
         self.layout().setMenuBar(menubar)
         
