@@ -43,15 +43,16 @@ Header:
 Body:
   - Job: Novice
     Tree:
-      - Name: NV_BASIC
-        MaxLevel: 9
-      - Name: NV_FIRSTAID
-        MaxLevel: 1
-      - Name: NV_TRICKDEAD
-        MaxLevel: 1
-        Exclude: true
-      - Name: WE_CALLBABY
-        MaxLevel: 1
+    #不顯示初學者技能
+      # - Name: NV_BASIC
+      #   MaxLevel: 9
+      # - Name: NV_FIRSTAID
+      #   MaxLevel: 1
+      # - Name: NV_TRICKDEAD
+      #   MaxLevel: 1
+      #   Exclude: true
+      # - Name: WE_CALLBABY
+      #   MaxLevel: 1
   - Job: Swordman
     Inherit:
       Novice: true
@@ -80,10 +81,13 @@ Body:
           - Name: SM_PROVOKE
             Level: 5
       - Name: SM_MOVINGRECOVERY
+        QuestSkill: true
         MaxLevel: 1
       - Name: SM_FATALBLOW
+        QuestSkill: true
         MaxLevel: 1
       - Name: SM_AUTOBERSERK
+        QuestSkill: true
         MaxLevel: 1
   - Job: Mage
     Inherit:
@@ -138,6 +142,7 @@ Body:
           - Name: MG_LIGHTNINGBOLT
             Level: 4
       - Name: MG_ENERGYCOAT
+        QuestSkill: true
         MaxLevel: 1
   - Job: Archer
     Inherit:
@@ -163,8 +168,10 @@ Body:
           - Name: AC_DOUBLE
             Level: 5
       - Name: AC_MAKINGARROW
+        QuestSkill: true
         MaxLevel: 1
       - Name: AC_CHARGEARROW
+        QuestSkill: true
         MaxLevel: 1
   - Job: Acolyte
     Inherit:
@@ -229,6 +236,7 @@ Body:
           - Name: AL_HEAL
             Level: 2
       - Name: AL_HOLYLIGHT
+        QuestSkill: true
         MaxLevel: 1
   - Job: Merchant
     Inherit:
@@ -261,17 +269,22 @@ Body:
       - Name: MC_MAMMONITE
         MaxLevel: 10
       - Name: MC_CARTREVOLUTION
+        QuestSkill: true
         MaxLevel: 1
       - Name: MC_CHANGECART
+        QuestSkill: true
         MaxLevel: 1
       - Name: MC_LOUD
+        QuestSkill: true
         MaxLevel: 1
       - Name: ALL_BUYING_STORE
+        QuestSkill: true
         MaxLevel: 1
         Requires:
           - Name: MC_VENDING
             Level: 1
       - Name: MC_CARTDECORATE
+        QuestSkill: true
         MaxLevel: 1
   - Job: Thief
     Inherit:
@@ -296,12 +309,16 @@ Body:
           - Name: TF_POISON
             Level: 3
       - Name: TF_SPRINKLESAND
+        QuestSkill: true
         MaxLevel: 1
       - Name: TF_BACKSLIDING
+        QuestSkill: true
         MaxLevel: 1
       - Name: TF_PICKSTONE
+        QuestSkill: true
         MaxLevel: 1
       - Name: TF_THROWSTONE
+        QuestSkill: true
         MaxLevel: 1
   - Job: Knight
     Inherit:
@@ -366,6 +383,7 @@ Body:
           - Name: KN_RIDING
             Level: 1
       - Name: KN_CHARGEATK
+        QuestSkill: true
         MaxLevel: 1
       - Name: KN_ONEHAND
         MaxLevel: 1
@@ -466,6 +484,7 @@ Body:
           - Name: PR_TURNUNDEAD
             Level: 3
       - Name: PR_REDEMPTIO
+        QuestSkill: true
         MaxLevel: 1
   - Job: Wizard
     Inherit:
@@ -551,6 +570,7 @@ Body:
       - Name: WZ_ESTIMATION
         MaxLevel: 1
       - Name: WZ_SIGHTBLASTER
+        QuestSkill: true
         MaxLevel: 1
   - Job: Blacksmith
     Inherit:
@@ -654,10 +674,13 @@ Body:
           - Name: BS_OVERTHRUST
             Level: 2
       - Name: BS_UNFAIRLYTRICK
+        QuestSkill: true
         MaxLevel: 1
       - Name: BS_GREED
+        QuestSkill: true
         MaxLevel: 1
       - Name: BS_ADRENALINE2
+        QuestSkill: true
         MaxLevel: 1
         Requires:
           - Name: BS_ADRENALINE
@@ -756,8 +779,10 @@ Body:
           - Name: HT_FALCON
             Level: 1
       - Name: HT_PHANTASMIC
+        QuestSkill: true
         MaxLevel: 1
       - Name: HT_POWER
+        QuestSkill: true
         MaxLevel: 1
         Requires:
           - Name: AC_DOUBLE
@@ -816,8 +841,10 @@ Body:
           - Name: AS_VENOMDUST
             Level: 5
       - Name: AS_SONICACCEL
+        QuestSkill: true
         MaxLevel: 1
       - Name: AS_VENOMKNIFE
+        QuestSkill: true
         MaxLevel: 1
   - Job: Knight2
     Inherit:
@@ -919,6 +946,7 @@ Body:
           - Name: KN_SPEARMASTERY
             Level: 10
       - Name: CR_SHRINK
+        QuestSkill: true
         MaxLevel: 1
   - Job: Monk
     Inherit:
@@ -1011,8 +1039,10 @@ Body:
           - Name: MO_CHAINCOMBO
             Level: 3
       - Name: MO_KITRANSLATION
+        QuestSkill: true
         MaxLevel: 1
       - Name: MO_BALKYOUNG
+        QuestSkill: true
         MaxLevel: 1
   - Job: Sage
     Inherit:
@@ -1130,14 +1160,19 @@ Body:
           - Name: SA_LANDPROTECTOR
             Level: 1
       - Name: SA_CREATECON
+        QuestSkill: true
         MaxLevel: 1
       - Name: SA_ELEMENTWATER
+        QuestSkill: true
         MaxLevel: 1
       - Name: SA_ELEMENTGROUND
+        QuestSkill: true
         MaxLevel: 1
       - Name: SA_ELEMENTFIRE
+        QuestSkill: true
         MaxLevel: 1
       - Name: SA_ELEMENTWIND
+        QuestSkill: true
         MaxLevel: 1
   - Job: Rogue
     Inherit:
@@ -1243,6 +1278,7 @@ Body:
           - Name: RG_INTIMIDATE
             Level: 5
       - Name: RG_CLOSECONFINE
+        QuestSkill: true
         MaxLevel: 1
   - Job: Alchemist
     Inherit:
@@ -1304,6 +1340,7 @@ Body:
           - Name: AM_PHARMACY
             Level: 2
       - Name: AM_BIOETHICS
+        QuestSkill: true
         MaxLevel: 1
       - Name: AM_CALLHOMUN
         MaxLevel: 1
@@ -1321,18 +1358,22 @@ Body:
           - Name: AM_CALLHOMUN
             Level: 1
       - Name: AM_BERSERKPITCHER
+        QuestSkill: true
         MaxLevel: 1
       - Name: AM_TWILIGHT1
+        QuestSkill: true
         MaxLevel: 1
         Requires:
           - Name: AM_PHARMACY
             Level: 10
       - Name: AM_TWILIGHT2
+        QuestSkill: true
         MaxLevel: 1
         Requires:
           - Name: AM_PHARMACY
             Level: 10
       - Name: AM_TWILIGHT3
+        QuestSkill: true
         MaxLevel: 1
         Requires:
           - Name: AM_PHARMACY
@@ -1434,6 +1475,7 @@ Body:
           - Name: BA_POEMBRAGI
             Level: 10
       - Name: BA_PANGVOICE
+        QuestSkill: true
         MaxLevel: 1
   - Job: Dancer
     Inherit:
@@ -1527,6 +1569,7 @@ Body:
           - Name: DC_FORTUNEKISS
             Level: 10
       - Name: DC_WINKCHARM
+        QuestSkill: true
         MaxLevel: 1
   - Job: Crusader2
     Inherit:
@@ -3101,6 +3144,7 @@ Body:
       - Name: SG_KNOWLEDGE
         MaxLevel: 10
       - Name: SG_FUSION
+        QuestSkill: true
         MaxLevel: 1
         Requires:
           - Name: SG_KNOWLEDGE

@@ -1479,13 +1479,13 @@ SKILL_TREEVIEW_FOR_JOB = {
 		[41] = SKID.SS_ANKOKURYUUAKUMU
 	}
 }
-JobSkillTab.ChangeSkillTabName(JOBID.JT_NOVICE, "ªì¾ÇªÌ¡P1ÂàÂ¾·~", "2Âà¡PÂà¥ÍÂ¾·~", "3ÂàÂ¾·~", "4ÂàÂ¾·~")
-JobSkillTab.ChangeSkillTabName(JOBID.JT_NINJA, "ªì¾ÇªÌ¡P1ÂàÂX¥R", "¶i¶¥ÂX¥RÂ¾·~", "¤W¦ìÂX¥RÂ¾·~")
-JobSkillTab.ChangeSkillTabName(JOBID.JT_GUNSLINGER, "ªì¾ÇªÌ¡P1ÂàÂX¥R", "¶i¶¥ÂX¥RÂ¾·~", "¤W¦ìÂX¥RÂ¾·~")
-JobSkillTab.ChangeSkillTabName(JOBID.JT_SUPERNOVICE, "ªì¾ÇªÌ¡P1ÂàÂX¥R", "¶i¶¥ÂX¥RÂ¾·~", "¤W¦ìÂX¥RÂ¾·~")
-JobSkillTab.ChangeSkillTabName(JOBID.JT_TAEKWON, "ªì¾ÇªÌ¡P1ÂàÂX¥R", "2ÂàÂX¥RÂ¾·~", "¶i¶¥ÂX¥RÂ¾·~", "¤W¦ìÂX¥RÂ¾·~")
-JobSkillTab.ChangeSkillTabName(JOBID.JT_STAR, "ªì¾ÇªÌ¡P1ÂàÂX¥R", "2ÂàÂX¥RÂ¾·~", "¶i¶¥ÂX¥RÂ¾·~", "¤W¦ìÂX¥RÂ¾·~")
-JobSkillTab.ChangeSkillTabName(JOBID.JT_LINKER, "ªì¾ÇªÌ¡P1ÂàÂX¥R", "2ÂàÂX¥RÂ¾·~", "¶i¶¥ÂX¥RÂ¾·~", "¤W¦ìÂX¥RÂ¾·~")
-JobSkillTab.ChangeSkillTabName(JOBID.JT_STAR2, "ªì¾ÇªÌ¡P1ÂàÂX¥R", "2ÂàÂX¥RÂ¾·~", "¶i¶¥ÂX¥RÂ¾·~", "¤W¦ìÂX¥RÂ¾·~")
-JobSkillTab.ChangeSkillTabName(JOBID.JT_DO_SUMMONER, "¿ß±Ú¡P¥l³ê®v", "¤W¦ìÂX¥RÂ¾·~")
-JobSkillTab.ChangeSkillTabName(JOBID.JT_DO_SUMMONER_B, "¿ß±Ú¡P¥l³ê®v", "¤W¦ìÂX¥RÂ¾·~")
+JobSkillTab.ChangeSkillTabName(JOBID.JT_NOVICE, "?î³‡é£›?ï†Œ?é §ï¦î¼ç’†?, "2é §ï€ç‘??î¸„î¼ç’†?, "3é §ï¦î¼ç’†?, "4é §ï¦î¼ç’†?)
+JobSkillTab.ChangeSkillTabName(JOBID.JT_NINJA, "?î³‡é£›?ï†Œ?é §ï¤î™´??, "?è„¤??æ¸¸??ç‘Ÿå¹³", "éŠï’¿??æ¸¸??ç‘Ÿå¹³")
+JobSkillTab.ChangeSkillTabName(JOBID.JT_GUNSLINGER, "?î³‡é£›?ï†Œ?é §ï¤î™´??, "?è„¤??æ¸¸??ç‘Ÿå¹³", "éŠï’¿??æ¸¸??ç‘Ÿå¹³")
+JobSkillTab.ChangeSkillTabName(JOBID.JT_SUPERNOVICE, "?î³‡é£›?ï†Œ?é §ï¤î™´??, "?è„¤??æ¸¸??ç‘Ÿå¹³", "éŠï’¿??æ¸¸??ç‘Ÿå¹³")
+JobSkillTab.ChangeSkillTabName(JOBID.JT_TAEKWON, "?î³‡é£›?ï†Œ?é §ï¤î™´??, "2é §ï¤î™´?ï†²î¼ç’†?, "?è„¤??æ¸¸??ç‘Ÿå¹³", "éŠï’¿??æ¸¸??ç‘Ÿå¹³")
+JobSkillTab.ChangeSkillTabName(JOBID.JT_STAR, "?î³‡é£›?ï†Œ?é §ï¤î™´??, "2é §ï¤î™´?ï†²î¼ç’†?, "?è„¤??æ¸¸??ç‘Ÿå¹³", "éŠï’¿??æ¸¸??ç‘Ÿå¹³")
+JobSkillTab.ChangeSkillTabName(JOBID.JT_LINKER, "?î³‡é£›?ï†Œ?é §ï¤î™´??, "2é §ï¤î™´?ï†²î¼ç’†?, "?è„¤??æ¸¸??ç‘Ÿå¹³", "éŠï’¿??æ¸¸??ç‘Ÿå¹³")
+JobSkillTab.ChangeSkillTabName(JOBID.JT_STAR2, "?î³‡é£›?ï†Œ?é §ï¤î™´??, "2é §ï¤î™´?ï†²î¼ç’†?, "?è„¤??æ¸¸??ç‘Ÿå¹³", "éŠï’¿??æ¸¸??ç‘Ÿå¹³")
+JobSkillTab.ChangeSkillTabName(JOBID.JT_DO_SUMMONER, "éîš¦?ç¹š?ç ?æ’£?, "éŠï’¿??æ¸¸??ç‘Ÿå¹³")
+JobSkillTab.ChangeSkillTabName(JOBID.JT_DO_SUMMONER_B, "éîš¦?ç¹š?ç ?æ’£?, "éŠï’¿??æ¸¸??ç‘Ÿå¹³")
