@@ -1,11 +1,11 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.0.16-251118"
+Version = "v0.1.0-251121"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
 from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QPlainTextEdit, QLabel
-
-
+import enchant #載入附魔工具
+import skill_tree #載入技能樹
 
 class InitWorker(QThread):
     log_signal = Signal(str)
@@ -208,8 +208,11 @@ class_map = {
 
 
 
-
-
+#6大12分支職業點數 "point":"49/49/20/69/54"
+#貓 ,"point":"59/54"
+#超初 ,"point":"98/69/54"
+#槍手忍者 ,"point":"69/69/54"
+#704天帝 ,"point":"49/49/69/54"
 
 #職業名稱跟JOB補正#ROCalculator
 job_dict = {
@@ -234,6 +237,7 @@ job_dict = {
     4303: {"id": "SL","id_jobneme": "Soul_Ascetic","id_jobneme_OL": "Taekwon/Linker/Soul_Reaper","selectskill": "SP/SOA", "name": "契靈士", "TJobMaxPoint": [3,7,7,11,13,2,0,8,7,16,7,3],"point":"49/49/69/54"},
     4302: {"id": "SE","id_jobneme": "Sky_Emperor","id_jobneme_OL": "Taekwon/Star/Star_Emperor","selectskill": "TK/SJ/SKE", "name": "天帝", "TJobMaxPoint": [12,10,6,3,9,3,12,10,2,0,6,7],"point":"49/49/69/54"},
 }
+
 
 stat_name_sets  = {#裝備基礎編碼
     "armor": [
@@ -596,21 +600,23 @@ def get_total_tstat_points(level: int) -> int:
 skill_map = {}
 skill_map_all = {}
 
-def load_skill_map(filepath=None):
-    global skill_map, skill_map_all, skill_df
-    try:
-        if filepath is None or isinstance(filepath, bool):
-            filepath = r"data\skillneme.csv"
+def load_skill_map(filepath="data/skillneme.csv"):
+    global skill_map, skill_map_all,skill_df
+    import skill_tree
+    import pandas as pd
+    skill_df = pd.read_csv(filepath, header=0)
+    df = pd.read_csv(filepath, header=0)
 
-        skill_df = pd.read_csv(filepath, header=0)
-        skill_map = dict(zip(skill_df["ID"], skill_df["Name"]))
-        skill_map_all = skill_df.set_index("ID").to_dict(orient="index")
-        #self.replace_custom_calc_content()
-        print("技能列表已成功載入")
-    except Exception as e:
-        skill_map = {}
-        skill_map_all = {}
-        print(f"載入技能列表失敗：{e}")
+    # === ItemSearchApp 用 ===
+    skill_map = dict(zip(skill_df["ID"], skill_df["Name"]))
+    skill_map_all = skill_df.set_index("ID").to_dict(orient="index")
+
+    # === skill_tree 用 ===
+    skill_tree.skill_id_to_name = dict(zip(df["ID"], df["Name"]))
+    skill_tree.skill_code_to_id = dict(zip(df["Code"], df["ID"]))
+    skill_tree.skill_code_to_name = dict(zip(df["Code"], df["Name"]))
+
+    print("技能列表已成功載入（統一版本）")
 
 load_skill_map() #讀取SKILL列表
 
@@ -1189,7 +1195,6 @@ class CSVEditor(QMainWindow):
 
         except Exception as e:
             print(f"[CSVEditor] _refresh_and_select_in_main 失敗：{e}")
-
 
 
 
@@ -2290,7 +2295,12 @@ def parse_lub_file(filename):#字典化物品列表
         QMessageBox.critical(None, "錯誤", f"找不到檔案：{filename}")
         return {}
 
-    item_entries = re.findall(r"\[(\d+)\]\s*=\s*{(.*?)}\s*,\s*(?=\[|\})", content, re.DOTALL)
+    item_entries = re.findall(
+        r"\[(\d+)\]\s*=\s*{(.*?)}(?=,\s*\[\d+\]|\s*\[\d+\]|\s*$)",
+        content,
+        re.DOTALL
+    )
+
     parsed_items = {}
     total = len(item_entries)
     print(f"📦 開始讀取 {os.path.basename(filename)}，共 {total} 筆物品資料。")
@@ -2434,7 +2444,92 @@ class PreferencesDialog(QDialog):
 
 
 class ItemSearchApp(QWidget):
-    
+    def open_enchant_tool(self):#附魔工具
+        # 載入所需資料
+        #item_data = enchant.parse_lub_file("data\iteminfo_new.lua")
+        item_data = self.parsed_items
+        itemdb = enchant.parse_itemdb_name_tbl("data/ItemDBNameTbl.lua")
+        enchant_data = enchant.parse_enchant_list("data/EnchantList.lua")
+
+        # 建立 UI
+        self.enchant_window = enchant.EnchantUI(enchant_data, item_data, itemdb)
+        self.enchant_window.setWindowTitle("附魔工具")
+        self.enchant_window.resize(900, 600)
+        self.enchant_window.show()
+
+
+
+    def open_skill_tree(self):
+        skill_tree.job_dict = job_dict
+        skill_tree.load_skill_tree("data/skill_tree.yml")
+        skill_tree.load_skill_treeview("data/skilltreeview.lub")
+
+        self.skill_tree_window = skill_tree.SkillTreeWindow()
+
+        job_id = self.input_fields["JOB"].currentData()
+        job_key = job_dict[job_id]["id_jobneme"]
+
+        # ★ 設定 callback
+        self.skill_tree_window.on_close_callback = self.receive_skill_tree_result
+
+        # ★ 設定職業（這會觸發 on_job_changed，但需要等 event-loop）
+        idx = self.skill_tree_window.job_combo.findData(job_key)
+        self.skill_tree_window.job_combo.setCurrentIndex(idx)
+
+        # ---------------------------------------------------
+        # ★ 在下一輪事件（Qt）再執行 restore → 此時 on_job_changed 已初始化完成
+        # ---------------------------------------------------
+        def do_restore():
+            self.restore_skill_tree_levels()
+
+            # ★ 套用技能等級
+            self.skill_tree_window.tree_widget.refresh_levels(
+                self.skill_tree_window.current_skill_map_job,
+                self.skill_tree_window.current_levels
+            )
+
+            # ★ 重算點數
+            self.skill_tree_window.recalc_region_used()
+            self.skill_tree_window.update_points_label()
+
+        QTimer.singleShot(0, do_restore)
+        self.skill_tree_window.show()
+
+
+
+
+    def receive_skill_tree_result(self, text):
+        # ★ 將 SkillTree 回傳結果寫入 技能 note 欄位
+        self.refine_inputs_ui["技能"]["note"].setPlainText(text)
+        #self.refine_inputs_ui["技能"]["note_ui"].setPlainText(text)
+
+
+    def restore_skill_tree_levels(self):
+        import re
+        from skill_tree import skill_code_to_id
+
+        note_widget = self.refine_inputs_ui["技能"]["note"]
+        note = note_widget.toPlainText().strip()
+        if not note:
+            return
+
+        matches = re.findall(r"EnableSkill\((\d+),\s*(\d+)\)", note)
+        if not matches:
+            return
+
+        restored = {}
+
+        # skill_code_to_id = { "SKIDNAME" : 1234 }
+        for code, sid in skill_code_to_id.items():
+            for sid2, lv in matches:
+                if sid == int(sid2):
+                    restored[code] = int(lv)
+
+        if hasattr(self, "skill_tree_window"):
+            self.skill_tree_window.current_levels = restored
+
+
+
     def update_window_title(self):
         filename = os.path.basename(self.current_file) if self.current_file else "未命名"
         self.setWindowTitle(f"RO物品查詢計算工具 {Version} - {filename} ")
@@ -3581,7 +3676,7 @@ class ItemSearchApp(QWidget):
             self.load_config()
         return self.update_mode or "local_only"
 
-    def open_preferences(self):
+    def open_compile_set(self):
         # 確保先有目前設定
         self.load_config()
         dlg = PreferencesDialog(current_mode=self.update_mode, parent=self)
@@ -5291,6 +5386,11 @@ class ItemSearchApp(QWidget):
         # === 線上來源（已整理好的 Lua） ===
         ONLINE_ITEMINFO_URL = "https://z2911902.github.io/ROItemSearchApp/data/iteminfo_new.lua"
         ONLINE_EQUIP_URL    = "https://z2911902.github.io/ROItemSearchApp/data/EquipmentProperties.lua"
+        #ONLINE_EnchantList_URL = "https://z2911902.github.io/ROItemSearchApp/data/EnchantList.lua"
+        #ONLINE_ItemDBNameTbl_URL = "https://z2911902.github.io/ROItemSearchApp/data/ItemDBNameTbl.lua"
+        #ONLINE_skill_tree_URL = https://z2911902.github.io/ROItemSearchApp/data/skill_tree.yml"
+        #ONLINE_skilltreeview_URL = "https://z2911902.github.io/ROItemSearchApp/data/skilltreeview.lub"
+        #ONLINE_skillneme_URL = "https://z2911902.github.io/ROItemSearchApp/data/skillname.csv"
 
         # === 路徑設定 ===
         if getattr(sys, 'frozen', False):
@@ -5302,6 +5402,11 @@ class ItemSearchApp(QWidget):
         os.makedirs(data_dir, exist_ok=True)
         iteminfo_path      = os.path.join(data_dir, "iteminfo_new.lua")
         equipment_lua_path = os.path.join(data_dir, "EquipmentProperties.lua")
+        # EnchantList_path  = os.path.join(data_dir, "EnchantList.lua")
+        # ItemDBNameTbl_path  = os.path.join(data_dir, "ItemDBNameTbl.lua")
+        # skill_tree_path  = os.path.join(data_dir, "skill_tree.yml")
+        # skilltreeview_path  = os.path.join(data_dir, "skilltreeview.lub")
+        # skillneme_path  = os.path.join(data_dir, "skillname.csv")
 
         # === 內嵌小工具 ===
         def _fmt_bytes(n: int) -> str:
@@ -5696,9 +5801,11 @@ class ItemSearchApp(QWidget):
             "服飾頭下":   {"slot": 43, "type": "服飾"},
             "服飾斗篷":   {"slot": 44, "type": "服飾"},
             
-            # === 石碑/寵物部位 ===
+            # === 石碑/寵物部位 === slot部位自定義，遊戲未定義此位置。
             "符文石碑":   {"slot": 100, "type": "石碑"},
             "寵物蛋":   {"slot": 101, "type": "寵物"},
+            # === 技能欄位 === slot部位自定義，遊戲未定義此位置。
+            "技能":   {"slot": 102, "type": "技能"},
         }
         def get_part_slot_from_source(source_str):
             for part_name, info in self.refine_parts.items():
@@ -5825,7 +5932,7 @@ class ItemSearchApp(QWidget):
         equip_layout.addWidget(QLabel("裝備與卡片設定"))
 
         self.refine_inputs_ui = {}
-        visible_types = ["裝備", "影子", "服飾", "石碑", "寵物"]
+        visible_types = ["裝備", "影子", "服飾", "石碑", "寵物", "技能"]
 
         for part_name, info in self.refine_parts.items():
             if info["type"] not in visible_types:
@@ -5878,7 +5985,7 @@ class ItemSearchApp(QWidget):
             equip_layout.addWidget(part_label)
 
             part_ui = {}
-            equip_row_layout = QHBoxLayout()
+            #equip_row_layout = QHBoxLayout()
             
                                     # ▶️ 儲存 / 載入 / 下拉 / 刪除控制列
             preset_row = QHBoxLayout()
@@ -5915,9 +6022,14 @@ class ItemSearchApp(QWidget):
             part_ui["preset_input"] = preset_name_input
             #part_ui["preset_combo"] = preset_combo
 
-            # ▶️ 裝備欄位 + 清空
+            # ▶️ 裝備欄位 + 清空（加上 container 才能單獨隱藏）
+            equip_container = QWidget()
+            equip_row_layout = QHBoxLayout(equip_container)
+            equip_row_layout.setContentsMargins(0, 0, 0, 0)
+
             equip_input = QLineEdit()
             equip_input.setReadOnly(True)
+
             if part_name == "符文石碑":
                 equip_input.setPlaceholderText("石碑名稱")
             elif part_name == "寵物蛋":
@@ -5932,10 +6044,17 @@ class ItemSearchApp(QWidget):
             clear_equip_btn.setFixedWidth(40)
             clear_equip_btn.clicked.connect(self.clear_global_state)
             clear_equip_btn.clicked.connect(lambda _, field=equip_input: [field.clear(), self.display_item_info()])
-            
+
             equip_row_layout.addWidget(equip_input)
             equip_row_layout.addWidget(clear_equip_btn)
+
+            # ★ 加入 layout
+            equip_layout.addWidget(equip_container)
+
+            # ★ 存入 part_ui
             part_ui["equip"] = equip_input
+            part_ui["equip_container"] = equip_container
+
 
             # ▶️ 精煉欄位
             refine_input = QLineEdit()
@@ -6006,7 +6125,7 @@ class ItemSearchApp(QWidget):
 
 
             # ▶️ 將裝備行 layout 加進主 layout
-            equip_layout.addLayout(equip_row_layout)
+            #equip_layout.addLayout(equip_row_layout)
 
             # ▶️ 卡片欄位們 + 清空按鈕
             card_inputs = []
@@ -6114,10 +6233,23 @@ class ItemSearchApp(QWidget):
                     refine_parent = refine_widget.parentWidget()
                     if refine_parent:
                         refine_widget.hide()  # 雙保險：同時呼叫 hide()
+            #技能只顯示詞條
+            if part_name == "技能":
+                equip_widget = part_ui["equip"]
+                equip_widget.setVisible(False)
+                part_ui["equip_container"].setVisible(False)
+                # 隱藏卡片欄位
+                for c in part_ui["cards"]:
+                    c.setVisible(False)
+                    parent_layout = c.parentWidget()
+                    if parent_layout:
+                        parent_layout.setVisible(False)
 
+                refine_widget = part_ui["refine"]
+                refine_widget.setVisible(False)
 
-
-
+                grade_widget = part_ui["grade"]
+                grade_widget.setVisible(False)
 
 
 
@@ -6969,16 +7101,27 @@ class ItemSearchApp(QWidget):
 
         ROC_save_as_action = QAction("另存到.ROC(ROCalculator)", self)
         ROC_save_as_action.triggered.connect(
-            lambda checked=False: self.add_effects_from_variables("data\default.txt", equipid_mapping, status_mapping)
+            lambda checked=False: self.add_effects_from_variables("data/default.txt", equipid_mapping, status_mapping)
         )   
 
         file_menu.addAction(ROC_save_as_action)
         
+        gamedata_menu = menubar.addMenu("遊戲資訊")
+        # === 建立選單：附魔工具 ===
+        enchant_action = QAction("附魔查詢工具", self)
+        enchant_action.triggered.connect(self.open_enchant_tool)
+
+        gamedata_menu.addAction(enchant_action)
+            # === 建立選單：技能欄 ===
+        skill_tree_action = QAction("技能欄", self)
+        skill_tree_action.triggered.connect(self.open_skill_tree)
+        gamedata_menu.addAction(skill_tree_action)
+
         # === 設定選單 ===
         settings_menu = menubar.addMenu("設定")
 
-        preferences_action = QAction("偏好設定", self)
-        preferences_action.triggered.connect(self.open_preferences)
+        preferences_action = QAction("編譯模式設定", self)
+        preferences_action.triggered.connect(self.open_compile_set)
         settings_menu.addAction(preferences_action)
 
 

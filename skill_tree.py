@@ -95,37 +95,7 @@ def get_combined_pos_map(job_key: str) -> dict:
 
     return pos_map
 
-#6大12分支職業點數 "point":"49/49/20/69/54"
-#貓 ,"point":"59/54"
-#超初 ,"point":"98/69/54"
-#槍手忍者 ,"point":"69/69/54"
-#704天帝 ,"point":"49/49/69/54"
-# =========================================================
-# job_dict (你給的這個)
-# =========================================================
 
-job_dict = {
-    4252: {"id": "RK","id_jobneme": "Dragon_Knight","id_jobneme_OL": "Swordman/Knight/Knight_H/Rune_Knight","selectskill": "RK/DK", "name": "盧恩龍爵", "TJobMaxPoint": [6,8,7,8,8,6,10,6,3,5,6,8],"point":"49/49/20/69/54"},
-    4253: {"id": "ME","id_jobneme": "Meister","id_jobneme_OL": "Merchant/Blacksmith/Blacksmith_H/Mechanic","selectskill": "NC/MT", "name": "機甲神匠", "TJobMaxPoint": [10,6,10,6,5,6,9,10,5,0,7,7],"point":"49/49/20/69/54"},
-    4254: {"id": "GX","id_jobneme": "Shadow_Cross","id_jobneme_OL": "Thief/Assassin/Assassin_H/Guillotine_Cross","selectskill": "GC/ASC/SHC", "name": "十字影武", "TJobMaxPoint": [8,11,6,5,9,4,12,8,4,0,7,7],"point":"49/49/20/69/54"},
-    4255: {"id": "WL","id_jobneme": "Arch_Mage","id_jobneme_OL": "Magician/Wizard/Wizard_H/Warlock","selectskill": "WL/AG", "name": "禁咒魔導士", "TJobMaxPoint": [1,7,8,15,8,4,0,8,7,13,9,1],"point":"49/49/20/69/54"},
-    4256: {"id": "AB","id_jobneme": "Cardinal","id_jobneme_OL": "Acolyte/Priest/Priest_H/Archbishop","selectskill": "AB/CD", "name": "樞機主教", "TJobMaxPoint": [6,7,7,12,7,4,8,5,5,9,4,7],"point":"49/49/20/69/54"},
-    4257: {"id": "RA","id_jobneme": "Wind_Hawk","id_jobneme_OL": "Archer/Hunter/Hunter_H/Ranger","selectskill": "SN/RA/WH", "name": "風鷹狩獵者", "TJobMaxPoint": [2,12,8,9,8,4,9,5,5,4,11,4],"point":"49/49/20/69/54"},
-    4258: {"id": "RG","id_jobneme": "Imperial_Guard","id_jobneme_OL": "Swordman/Crusader/Crusader_H/Royal_Guard","selectskill": "LG/PA/IG", "name": "帝國聖衛軍", "TJobMaxPoint": [9,3,9,10,9,3,7,11,6,7,4,3],"point":"49/49/20/69/54"},
-    4259: {"id": "GE","id_jobneme": "Biolo","id_jobneme_OL": "Merchant/Alchemist/Alchemist_H/Genetic","selectskill": "GN/CR/BO", "name": "生命締造者", "TJobMaxPoint": [5,6,8,12,8,4,7,4,4,4,7,12],"point":"49/49/20/69/54"},
-    4260: {"id": "SC","id_jobneme": "Abyss_Chaser","id_jobneme_OL": "Thief/Rogue/Rogue_H/Shadow_Chaser","selectskill": "SC/ABC", "name": "深淵追跡者", "TJobMaxPoint": [8,9,8,6,6,6,8,8,4,7,5,6],"point":"49/49/20/69/54"},
-    4261: {"id": "SO","id_jobneme": "Elemental_Master","id_jobneme_OL": "Magician/Sage/Sage_H/Sorcerer","selectskill": "SO/EM", "name": "元素支配者", "TJobMaxPoint": [4,4,8,13,9,5,3,8,7,12,5,3],"point":"49/49/20/69/54"},
-    4262: {"id": "SU","id_jobneme": "Inquisitor","id_jobneme_OL": "Acolyte/Monk/Monk_H/Sura","selectskill": "MO/SR/IQ", "name": "聖裁者", "TJobMaxPoint": [10,10,6,8,8,1,11,8,5,3,5,6],"point":"49/49/20/69/54"},
-    4263: {"id": "MI","id_jobneme": "Troubadour","id_jobneme_OL": "Archer/Bard/Bard_H/Minstrel","selectskill": "CG/WM/TR", "name": "天籟頌者", "TJobMaxPoint": [7,7,7,9,10,3,6,7,4,6,11,4],"point":"49/49/20/69/54"},
-    4264: {"id": "WA","id_jobneme": "Trouvere","id_jobneme_OL": "Archer/Dancer/Dancer_H/Wanderer","selectskill": "CG/WM/TR", "name": "樂之舞靈", "TJobMaxPoint": [7,9,6,10,8,3,6,7,4,6,11,4],"point":"49/49/20/69/54"},
-    4308: {"id": "SUM","id_jobneme": "Spirit_Handler","id_jobneme_OL": "Do_Summoner","selectskill": "SU/SH", "name": "魂靈師", "TJobMaxPoint": [5,7,5,9,12,5,8,6,5,8,7,4],"point":"59/54"},
-    4307: {"id": "SN","id_jobneme": "Hyper_Novice","id_jobneme_OL": "Supernovice/Supernovice2","selectskill": "HN", "name": "終極初學者", "TJobMaxPoint": [10,5,6,10,5,6,9,5,4,9,8,3],"point":"98/69/54"},
-    4306: {"id": "RE","id_jobneme": "Night_Watch","id_jobneme_OL": "Gunslinger/Rebellion","selectskill": "RL/NW", "name": "夜行者", "TJobMaxPoint": [3,8,6,8,11,7,11,6,5,0,10,5],"point":"69/69/54"},
-    4304: {"id": "OB","id_jobneme": "Shinkiro","id_jobneme_OL": "Ninja/Kagerou","selectskill": "NJ/KO/SS", "name": "流浪忍者", "TJobMaxPoint": [10,12,6,4,9,3,10,10,4,0,6,8],"point":"69/69/54"},
-    4305: {"id": "KO","id_jobneme": "Shiranui","id_jobneme_OL": "Ninja/Oboro","selectskill": "NJ/KO/SS", "name": "疾風忍者", "TJobMaxPoint": [4,8,5,10,10,3,4,8,10,3,6,7],"point":"69/69/54"},
-    4303: {"id": "SL","id_jobneme": "Soul_Ascetic","id_jobneme_OL": "Taekwon/Linker/Soul_Reaper","selectskill": "SP/SOA", "name": "契靈士", "TJobMaxPoint": [3,7,7,11,13,2,0,8,7,16,7,3],"point":"49/49/69/54"},
-    4302: {"id": "SE","id_jobneme": "Sky_Emperor","id_jobneme_OL": "Taekwon/Star/Star_Emperor","selectskill": "TK/SJ/SKE", "name": "天帝", "TJobMaxPoint": [12,10,6,3,9,3,12,10,2,0,6,7],"point":"49/49/69/54"},
-}
 
 # =========================================================
 # skillneme.csv 對照：Code -> ID / 中文
@@ -367,6 +337,13 @@ class SkillNodeWidget(QFrame):
 
         self.update_display()
 
+    def force_set_level(self, lv):
+        # ① 直接覆蓋 get_level，讓 UI 讀取新的 lv
+        self.get_level = lambda c, lv=lv: lv
+        # ② 更新顯示
+        self.update_display()
+
+
     def enterEvent(self, event):
         # 找到主視窗並呼叫 on_skill_hover
         window = self.window()
@@ -556,19 +533,26 @@ class SkillTreeGrid(QWidget):
         for i in range(self.grid.count()):
             w = self.grid.itemAt(i).widget()
             if isinstance(w, SkillNodeWidget):
+                # ★ 每次刷新時更新 get_level 來源
+                w.get_level = lambda c, lv=levels: lv.get(c, 0)
+
                 info = skill_map_job.get(w.code, {})
                 w.max_level = info.get("MaxLevel", 0)
                 w.update_display()
+
 
 # =========================================================
 # 主視窗
 # =========================================================
 class SkillTreeWindow(QMainWindow):
+
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("RO 技能表")
         self.resize(900, 600)
+        # ★★ 新增：關閉視窗後回傳資料的 callback ★★
+        self.on_close_callback = None
 
         self.current_job_key = None
         self.current_skill_map_job = {}
@@ -586,7 +570,7 @@ class SkillTreeWindow(QMainWindow):
         # 職業選單
         top_row = QHBoxLayout()
         main_layout.addLayout(top_row)
-        top_row.addWidget(QLabel("選擇職業 (id_jobneme)："))
+        top_row.addWidget(QLabel("職業："))
 
         self.job_combo = QComboBox()
         self.job_combo.addItem("-- 請選擇 --", userData=None)
@@ -594,10 +578,12 @@ class SkillTreeWindow(QMainWindow):
             key = job["id_jobneme"]
             if key not in job_skill_tree_raw:
                 continue
-            text = f'{job["name"]} ({key})'
+            text = f'{job["name"]}' #({key})'
             self.job_combo.addItem(text, userData=key)
         self.job_combo.currentIndexChanged.connect(self.on_job_changed)
         top_row.addWidget(self.job_combo, 1)
+        self.job_combo.setEnabled(False)
+        self.job_combo.setStyleSheet("color: gray;")  # 看起來像唯讀
 
         # 滾動區包 SkillTreeGrid
         self.scroll = QScrollArea()
@@ -610,6 +596,19 @@ class SkillTreeWindow(QMainWindow):
         self.lbl_points.setAlignment(Qt.AlignRight)
         main_layout.addWidget(self.lbl_points)
         self.update_points_label()
+
+    def apply_restored_levels(self):
+        if not hasattr(self, "current_levels"):
+            return
+        if not hasattr(self, "grid"):
+            return
+    
+        for code, lv in self.current_levels.items():
+            widget = self.grid.code2widget.get(code)
+            if widget:
+                widget.force_set_level(lv)
+
+
 
     def get_all_prerequisites(self, code, require_lv=None, out=None):
         """
@@ -709,6 +708,23 @@ class SkillTreeWindow(QMainWindow):
             dec_cb=self.decrease_skill,
         )
         self.update_points_label()
+
+    def closeEvent(self, event):
+        from skill_tree import skill_code_to_id
+
+        lines = []
+        for code, lv in self.current_levels.items():
+            if lv > 0:
+                sid = skill_code_to_id.get(code)
+                if sid:
+                    lines.append(f"EnableSkill({sid}, {lv})")
+
+        result = "\n".join(lines)
+
+        if self.on_close_callback:
+            self.on_close_callback(result)
+
+        super().closeEvent(event)
 
 
 
@@ -1124,7 +1140,7 @@ class SkillTreeWindow(QMainWindow):
 # main
 # =========================================================
 def main():
-    load_skill_map()       # 讀 skillneme.csv
+    #load_skill_map()       # 讀 skillneme.csv
     load_skill_tree()      # 讀 skill_tree.yml
     load_skill_treeview()  # ★ 新增：讀 skilltreeview.lub
 
