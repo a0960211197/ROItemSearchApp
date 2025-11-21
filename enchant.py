@@ -1,8 +1,5 @@
-<<<<<<< HEAD
+
 import sys
-=======
-﻿import sys
->>>>>>> 4c231af3473bdd98b7c9507febca4a266db18240
 import os
 import re
 from PySide6.QtWidgets import (

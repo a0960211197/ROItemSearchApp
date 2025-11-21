@@ -323,7 +323,7 @@ weapon_type_size_penalty = {#物體武器體型修正
 
 
 excluded_stat_names = {#過濾不顯示到效果
-    "防具等級",
+    "防具等級"
     }
 
 # 定義多組排序規則
@@ -2667,8 +2667,8 @@ class ItemSearchApp(QWidget):
         globals()["SMATK"] = sum(val for val, _ in effect_dict.get(("S.MATK", ""), []))
         #print(f"S.MATK{SMATK}")
         #公式用
-        SKILL_HW_MAGICPOWER = sum(val for val, _ in effect_dict.get(("可使用【魔力增幅】Lv.", ""), []))        
-        SKILL_ASC_KATAR = (sum(val for val, _ in effect_dict.get(("可使用【高階拳刃修練】Lv.", ""), [])) * 2) + 10 if weapon_class == 16 else 0
+        SKILL_HW_MAGICPOWER = enabled_skill_levels.get(366,0)#魔力增幅
+        SKILL_ASC_KATAR = (enabled_skill_levels.get(376,0) * 2) + 10 if weapon_class == 16 else 0#高階拳刃修煉
         #print(f"高階拳刃修煉 {SKILL_ASC_KATAR}")
         #print(f"魔力增幅 {SKILL_HW_MAGICPOWER}")
 
@@ -4141,7 +4141,9 @@ class ItemSearchApp(QWidget):
                         line.startswith("❌") or
                         line.startswith("📌") or
                         line.startswith("✅") or
-                        line.startswith("⛔"))
+                        line.startswith("⛔") or
+                        line.startswith("可使用")
+                        )
             ]
         return filtered
     
@@ -6279,7 +6281,8 @@ class ItemSearchApp(QWidget):
 
         self.skill_checkboxes = {}
         for name, data in all_skill_entries.items():
-            checkbox = QCheckBox(f"{data['type']} {name}")
+            checkbox = QCheckBox(f"{data['type']} {name}")            
+            checkbox.stateChanged.connect(self.clear_global_state)
             checkbox.stateChanged.connect(self.trigger_total_effect_update)
             self.skill_checkboxes[name] = checkbox
             self.skill_checkbox_layout.addWidget(checkbox)
