@@ -97,6 +97,10 @@ def get_combined_pos_map(job_key: str) -> dict:
 
 
 
+
+
+
+
 # =========================================================
 # skillneme.csv 對照：Code -> ID / 中文
 # =========================================================
@@ -947,6 +951,30 @@ class SkillTreeWindow(QMainWindow):
         #    → 之後自動補前置，只能補到這個區塊為止
         # --------------------------------------------------
         self.recalc_region_used()
+        # -----------------------
+        # 計算 max_pre_region
+        # -----------------------
+
+        # 1) 建立累積需求
+        cumulative = []
+        running = 0
+        for v in self.region_points_max:
+            running += v
+            cumulative.append(running)
+
+        # 2) 計算目前總使用點數
+        total_used = sum(self.region_points_used)
+
+        # 3) 找出目前已解鎖的最高轉職
+        max_pre_region = 0
+        for i, req in enumerate(cumulative):
+            if total_used >= req:
+                max_pre_region = i + 1    # +1 因為達成 i 表示可補到下一轉
+            else:
+                break
+
+        # max_pre_region 現在是補前置的最高轉職 INDEX（0 起算）
+
 
         active_region = None  # 第一個還沒滿的區塊
         if self.region_points_max:
@@ -968,7 +996,8 @@ class SkillTreeWindow(QMainWindow):
         all_requires = self.get_all_prerequisites(code)  # { pre_code: req_lv }
 
         if active_region is not None:
-            max_pre_region = min(region, active_region)
+            max_pre_region = min(region, max_pre_region)
+
         else:
             # 沒有設定 point 的職業，當作不限
             max_pre_region = region
@@ -983,13 +1012,12 @@ class SkillTreeWindow(QMainWindow):
             if pre_region > max_pre_region:
                 continue
 
+
             pre_max_lv = pre_info.get("MaxLevel", 0)
             want_lv = min(req_lv, pre_max_lv)
             if self.current_levels.get(pre_code, 0) < want_lv:
                 self.current_levels[pre_code] = want_lv
 
-        # 補完前置之後，重算一次各區塊使用點數
-        self.recalc_region_used()
 
         # --------------------------------------------------
         # ③ 解鎖檢查：
@@ -998,11 +1026,12 @@ class SkillTreeWindow(QMainWindow):
         # --------------------------------------------------
         if self.region_points_max and region > 0:
             can_unlock = True
-            for i in range(region):
-                if self.region_points_used[i] < self.region_points_max[i]:
-                    can_unlock = False
-                    break
+            # 加總模式
+            needed = sum(self.region_points_max[:region])
+            current = sum(self.region_points_used[:region])
 
+            if current < needed:
+                can_unlock = False
             if not can_unlock:
                 # 計算每一轉還差多少點
                 missing_info = []
