@@ -378,7 +378,7 @@ class SkillNodeWidget(QFrame):
         # 有點數時背景亮一點
         if lv > 0:
             self.setStyleSheet(
-                "QFrame { background:#444; border-radius:4px; } "
+                "QFrame { background:#666; border-radius:4px; } "
                 "QLabel { color:white; font-size:11px; }"
             )
         else:
