@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.0-251121"
+Version = "v0.1.1-251122"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -2358,8 +2358,39 @@ def parse_lub_file(filename):#字典化物品列表
 
         except Exception:
             continue
-    print(f"\n✅ 讀取完成，共成功解析 {len(parsed_items)} 筆。")
     return parsed_items
+
+def resolve_name_conflicts(parsed_items, equipment_blocks):
+    """
+    parsed_items: parse_lub_file() 的結果
+    equipment_blocks: parse_equipment_blocks() 的結果
+    只對有能力區塊的 itemID 執行名稱重複處理
+    """
+
+    # 只取出「有能力」的物品
+    affected_items = {
+        item_id: parsed_items[item_id]
+        for item_id in equipment_blocks.keys()
+        if item_id in parsed_items
+    }
+
+    # 統計名稱出現次數
+    name_count = {}
+    for item_id, info in affected_items.items():
+        name = info["name"]
+        name_count[name] = name_count.get(name, 0) + 1
+
+    # 只有重複名稱需要加 itemID
+    for item_id, info in affected_items.items():
+        name = info["name"]
+        if name_count[name] > 1:
+            print(f"{name}")
+            info["name"] = f"{name} (ID:{item_id})"
+
+    # 注意：parsed_items 本身也會被更新（因為 dict 是參考）
+    return parsed_items
+
+
 
 #素質點計算#取自ROCalculator
 def calculate_stat_points(level: int, transcendent: bool = False) -> int:
@@ -4950,6 +4981,36 @@ class ItemSearchApp(QWidget):
         print(f"\n✅ 解析完成，共 {len(blocks)} 筆裝備。")
         return blocks
 
+    def resolve_name_conflicts(parsed_items, equipment_blocks):
+        """
+        parsed_items: parse_lub_file() 的結果
+        equipment_blocks: parse_equipment_blocks() 的結果
+        只對有能力區塊的 itemID 執行名稱重複處理
+        """
+
+        # 只取出「有能力」的物品
+        affected_items = {
+            item_id: parsed_items[item_id]
+            for item_id in equipment_blocks.keys()
+            if item_id in parsed_items
+        }
+
+        # 統計名稱出現次數
+        name_count = {}
+        for item_id, info in affected_items.items():
+            name = info["name"]
+            name_count[name] = name_count.get(name, 0) + 1
+
+        # 只有重複名稱需要加 itemID
+        for item_id, info in affected_items.items():
+            name = info["name"]
+            if name_count[name] > 1:
+                info["name"] = f"{name} (ID:{item_id})"
+
+        # 注意：parsed_items 本身也會被更新（因為 dict 是參考）
+        return parsed_items
+
+
         
     def closeEvent(self, event):
         reply = QMessageBox.question(
@@ -5715,6 +5776,7 @@ class ItemSearchApp(QWidget):
         with open(equipment_lua_path, "r", encoding="utf-8") as f:
             content = f.read()
         self.equipment_data = self.parse_equipment_blocks(content)
+        self.parsed_items = resolve_name_conflicts(self.parsed_items ,self.equipment_data)
         print("🎉 載入完成")
         return self.parsed_items
 
