@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.1-251122"
+Version = "v0.1.2-251122"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -2384,7 +2384,7 @@ def resolve_name_conflicts(parsed_items, equipment_blocks):
     for item_id, info in affected_items.items():
         name = info["name"]
         if name_count[name] > 1:
-            print(f"{name}")
+            #print(f"{name}")
             info["name"] = f"{name} (ID:{item_id})"
 
     # 注意：parsed_items 本身也會被更新（因為 dict 是參考）
@@ -2393,8 +2393,13 @@ def resolve_name_conflicts(parsed_items, equipment_blocks):
 
 
 #素質點計算#取自ROCalculator
-def calculate_stat_points(level: int, transcendent: bool = False) -> int:
-    pt = 100 if transcendent else 100 - 52
+def calculate_stat_points(level: int, job_id: int) -> int:
+    # 4302 ~ 4308 = 0，其餘 = 100
+    if 4302 <= job_id <= 4308:
+        pt = 0
+    else:
+        pt = 100
+
     for i in range(1, level):
         if i < 100:
             pt += i // 5 + 3
@@ -2405,6 +2410,9 @@ def calculate_stat_points(level: int, transcendent: bool = False) -> int:
         elif i < 200:
             pt += 33 + (i - 185) // 7
     return pt
+
+
+
 #素質消耗計算#取自ROCalculator
 def raising_stats(stat_str: str) -> int:
     try:
@@ -5954,8 +5962,11 @@ class ItemSearchApp(QWidget):
                             self.stat_point_label.setText("（素質點：-）")
                             return
 
-                        is_trans = True  # 預留判斷 現在是轉生後4轉職業
-                        total_pts = calculate_stat_points(lv, is_trans)
+                        # 直接從 JOB 下拉選單取得職業 ID
+                        job_id = self.input_fields["JOB"].currentData()
+
+                        # 計算素質點
+                        total_pts = calculate_stat_points(lv, job_id)
 
                         used_pts = sum([
                             raising_stats(self.input_fields["STR"].text()),
@@ -6730,7 +6741,7 @@ class ItemSearchApp(QWidget):
                 self.skill_hits_input.setText("")
 
         combo.currentIndexChanged.connect(filter_skills)#註冊JOB變更時過濾技能列表
-
+        combo.currentIndexChanged.connect(update_stat_point)  # 更新職業是否擴充判斷總素質點
         
         skill_select_layout_top = QHBoxLayout()
         skill_select_layout_bottom = QHBoxLayout()
