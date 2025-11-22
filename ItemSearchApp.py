@@ -4937,7 +4937,7 @@ class ItemSearchApp(QWidget):
                 for val, source in entries:
                     val_str = f"{val:.1f}{unit}" if unit == "秒" else f"{val:+g}{unit}"
                     combined.append(f"{key} {val_str}  ← 〔{source}〕")
-                combined.append(f"🧮{key} {value_str}  ← 〔總和〕🧮")
+                combined.append(f"🧮↳ {key} {value_str}  ← 〔總和〕🧮")
             else:
                 combined.append(f"{key} {value_str}")
         
@@ -5507,6 +5507,8 @@ class ItemSearchApp(QWidget):
 
         def _download_with_progress(url: str, dest_path: str, timeout=30) -> bool:
             import time
+            import ssl, certifi
+            ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
             print(f"🌐 下載：{url}")
             req = Request(url, headers={"User-Agent": "ROItemSearchApp-Updater/1.2"})
             try:
@@ -7689,7 +7691,7 @@ class ItemSearchApp(QWidget):
                     for val, source in entries:
                         val_str = f"{val:+.1f}{unit}" if unit == "秒" else f"{val:+d}{unit}"
                         combined.append(f"{key} {val_str}  ← 〔{source}〕")
-                    combined.append(f"🧮{key} {value_str}  ← 〔總和〕🧮")
+                    combined.append(f"🧮↳ {key} {value_str}  ← 〔總和〕🧮")
                 else:
                     combined.append(f"{key} {value_str}")
     
