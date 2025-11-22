@@ -12,7 +12,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QToolTip
 from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QSpacerItem, QSizePolicy
-
+from PySide6.QtCore import QEvent
 
 # =========================================================
 # 設定路徑
@@ -601,6 +601,19 @@ class SkillTreeWindow(QMainWindow):
         main_layout.addWidget(self.lbl_points)
         self.update_points_label()
 
+
+    def attach_main_window(self, main_window):
+        """註冊主視窗事件以便監聽焦點"""
+        self.main_window = main_window
+        self.main_window.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        # 主視窗被啟用（使用者點回主程式 UI）
+        if obj == getattr(self, "main_window", None):
+            if event.type() == QEvent.WindowActivate:
+                self.close()
+        return super().eventFilter(obj, event)
+
     def apply_restored_levels(self):
         if not hasattr(self, "current_levels"):
             return
@@ -611,8 +624,6 @@ class SkillTreeWindow(QMainWindow):
             widget = self.grid.code2widget.get(code)
             if widget:
                 widget.force_set_level(lv)
-
-
 
     def get_all_prerequisites(self, code, require_lv=None, out=None):
         """
@@ -729,6 +740,7 @@ class SkillTreeWindow(QMainWindow):
             self.on_close_callback(result)
 
         super().closeEvent(event)
+
 
 
 
@@ -951,6 +963,8 @@ class SkillTreeWindow(QMainWindow):
         #    → 之後自動補前置，只能補到這個區塊為止
         # --------------------------------------------------
         self.recalc_region_used()
+
+
         # -----------------------
         # 計算 max_pre_region
         # -----------------------
@@ -1024,21 +1038,24 @@ class SkillTreeWindow(QMainWindow):
         #    點第 N 區技能 → 前面 0..N-1 區都要點滿，否則不能點本區
         #    （但剛剛補的前置會保留）
         # --------------------------------------------------
+        self.recalc_region_used()
+
         if self.region_points_max and region > 0:
             can_unlock = True
             # 加總模式
             needed = sum(self.region_points_max[:region])
             current = sum(self.region_points_used[:region])
+            diff = current - needed
 
-            if current < needed:
-                can_unlock = False
-            if not can_unlock:
-                # 計算每一轉還差多少點
+            # 解鎖不足 → 只在不足時顯示提示
+            if diff < 0:
                 missing_info = []
+                # （這裡只列出真正需要補滿的前置區域）
+                running = 0
                 for i in range(region):
-                    left = self.region_points_max[i] - self.region_points_used[i]
-                    if left > 0:
-                        missing_info.append(f"{i+1}轉還差{left}點")
+                    running += self.region_points_used[i] - self.region_points_max[i]
+                    if running < 0:
+                        missing_info.append(f"{i+1}轉還缺{-running}點")
 
                 msg = "、".join(missing_info) + "，無法點本區技能（已先自動補前置）"
                 if from_widget:

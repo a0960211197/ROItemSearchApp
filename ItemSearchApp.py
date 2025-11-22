@@ -2466,6 +2466,9 @@ class ItemSearchApp(QWidget):
 
         self.skill_tree_window = skill_tree.SkillTreeWindow()
 
+        # ★ 新增：把主視窗傳給技能樹視窗（這一行是關鍵）
+        self.skill_tree_window.attach_main_window(self)
+
         job_id = self.input_fields["JOB"].currentData()
         job_key = job_dict[job_id]["id_jobneme"]
 
@@ -2493,6 +2496,7 @@ class ItemSearchApp(QWidget):
             self.skill_tree_window.update_points_label()
 
         QTimer.singleShot(0, do_restore)
+        self.input_fields["JOB"].setEnabled(False)
         self.skill_tree_window.show()
 
 
@@ -2502,6 +2506,7 @@ class ItemSearchApp(QWidget):
         # ★ 將 SkillTree 回傳結果寫入 技能 note 欄位
         self.refine_inputs_ui["技能"]["note"].setPlainText(text)
         #self.refine_inputs_ui["技能"]["note_ui"].setPlainText(text)
+        self.input_fields["JOB"].setEnabled(True)
 
 
     def restore_skill_tree_levels(self):
@@ -2667,10 +2672,9 @@ class ItemSearchApp(QWidget):
         globals()["SMATK"] = sum(val for val, _ in effect_dict.get(("S.MATK", ""), []))
         #print(f"S.MATK{SMATK}")
         #公式用
-        SKILL_HW_MAGICPOWER = enabled_skill_levels.get(366,0)#魔力增幅
+        
         SKILL_ASC_KATAR = (enabled_skill_levels.get(376,0) * 2) + 10 if weapon_class == 16 else 0#高階拳刃修煉
         #print(f"高階拳刃修煉 {SKILL_ASC_KATAR}")
-        #print(f"魔力增幅 {SKILL_HW_MAGICPOWER}")
 
 
         # 從下拉選單與欄位取得目標資訊
@@ -2756,7 +2760,8 @@ class ItemSearchApp(QWidget):
         SPORE_attack_buff = 1+5/100 if self.special_checkboxes["SPORE_attack_checkbox"].isChecked() else 0
         #聖油
         OLEUM_attack_buff = 1+20/100 if self.special_checkboxes["OLEUM_attack_checkbox"].isChecked() else 0
-        
+        #魔力增幅
+        SKILL_HW_MAGICPOWER = 10 if self.special_checkboxes["SKILL_HW_MAGICPOWER_checkbox"].isChecked() else 0
 
         
         """
@@ -4941,7 +4946,7 @@ class ItemSearchApp(QWidget):
             block_text_full = "{" + block_text.rstrip(",") + "}"
 
             blocks[item_id] = block_text_full
-            print(f"  → 處理中 {i+1}/{total}", end="\r")
+            print(f"  → 處理中 {i+1}/{total} 筆", end="\r")
         print(f"\n✅ 解析完成，共 {len(blocks)} 筆裝備。")
         return blocks
 
@@ -5849,6 +5854,11 @@ class ItemSearchApp(QWidget):
                 combo.setMaximumWidth(210)#調整寬度
                 self.input_fields[label] = combo
                 row_layout.addWidget(combo)
+                # ★ 新增：技能樹按鈕
+                skill_btn = QPushButton("技能表")
+                skill_btn.setFixedWidth(60)  # 控制按鈕大小
+                skill_btn.clicked.connect(self.open_skill_tree)  # 呼叫你現有的技能樹視窗
+                row_layout.addWidget(skill_btn)
             else:
                 field = QLineEdit()
                 field.setPlaceholderText(f"{label} (get({gid}))")
@@ -6863,6 +6873,8 @@ class ItemSearchApp(QWidget):
             "DARKCROW_attack_checkbox": QCheckBox("致命爪痕(近)"),
             "RUSH_attack_checkbox": QCheckBox("衝擊撼動(近遠)"),            
             "OLEUM_attack_checkbox": QCheckBox("聖油洗禮(遠)"),
+            "SKILL_HW_MAGICPOWER_checkbox": QCheckBox("魔力增幅"),
+
 
 
             # 可在這裡繼續新增更多項目
@@ -7116,9 +7128,9 @@ class ItemSearchApp(QWidget):
 
         gamedata_menu.addAction(enchant_action)
             # === 建立選單：技能欄 ===
-        skill_tree_action = QAction("技能欄", self)
-        skill_tree_action.triggered.connect(self.open_skill_tree)
-        gamedata_menu.addAction(skill_tree_action)
+        # skill_tree_action = QAction("技能欄", self)
+        # skill_tree_action.triggered.connect(self.open_skill_tree)
+        # gamedata_menu.addAction(skill_tree_action)
 
         # === 設定選單 ===
         settings_menu = menubar.addMenu("設定")
