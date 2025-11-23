@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.2-251122"
+Version = "v0.1.3-251122"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -861,7 +861,7 @@ class CSVEditor(QMainWindow):
                 "tooltip": "設定爆擊倍率，例如 0.5 代表半爆擊。"
             },
             "combo": {
-                "label": "連段技能",
+                "label": "連段技能公式",
                 "tooltip": "此技能觸發的下一個公式。"
             },
             "combo_element": {
@@ -2738,8 +2738,7 @@ class ItemSearchApp(QWidget):
 
         
         
-        skill_hits = int(self.skill_hits_input.text())#攻擊次數
-        #print(f"打擊次數 {skill_hits}")
+        
         try:
             target_element_lv = int(self.element_lv_input.text() or 1)#目標屬性等級
         except ValueError:
@@ -2813,7 +2812,6 @@ class ItemSearchApp(QWidget):
         target_mdefc      # 數字輸入 MDEF後
         target_mres       # 數字輸入 MRES
         User_attack_element #施展屬性
-        skill_hits_input
         """
         #=============參考動態變數自動抓技能%=(裝備段)==============
         # 從 skill_box 取得目前選中的技能名稱（顯示文字）
@@ -2844,16 +2842,23 @@ class ItemSearchApp(QWidget):
         def replace_gsklv_calls(formula: str) -> str:
             pattern = r'GSklv\((\d+)\)'  # 找出 GSklv(數字)
             return re.sub(pattern, lambda m: str(GSklv(int(m.group(1)))), formula)
-        def replace_custom_calls(formula):#例如超自然波 書跟杖打擊次數
-            # ✅ 處理 WPon(x|y|...)a:b 武器類型條件分支
+        def replace_custom_calls(formula):#例如超自然波 書跟杖打擊
+            import re
+    
+            # 如果不是字串，直接回傳，不處理
+            if not isinstance(formula, str):
+                return formula
+
+            # 處理 WPon(x|y|...)a:b
             def replace_wpon_expr(match):
-                global global_weapon_type_map  # 正確引用全域變數
+                global global_weapon_type_map
+        
                 types_str = match.group(1)
                 if_true = match.group(2)
                 if_false = match.group(3)
 
                 target_types = set(int(x) for x in types_str.split("|"))
-                weapon_class = global_weapon_type_map.get(4, 0)#只看主手
+                weapon_class = global_weapon_type_map.get(4, 0)  # 主手武器類型
 
                 return if_true if weapon_class in target_types else if_false
 
@@ -2862,6 +2867,7 @@ class ItemSearchApp(QWidget):
                 replace_wpon_expr,
                 formula
             )
+
 
 
 
@@ -3116,7 +3122,10 @@ class ItemSearchApp(QWidget):
         
         # === 取得使用者從 UI 下拉選單選擇的技能名稱
         #selected_skill_name = self.skill_box.currentText()#上面已經做過了
-
+        #武器次數依照武器類型判斷
+        skill_hits = self.skill_hits_input.text()#攻擊次數
+        skill_hits = int(replace_custom_calls(skill_hits))
+        #print(f"技能攻擊次數: {skill_hits}")
         # === [1] 取得技能 row
         skill_row = skill_df[skill_df["Name"] == selected_skill_name]
         if skill_row.empty:
@@ -3180,6 +3189,9 @@ class ItemSearchApp(QWidget):
 
         # === [4] 主段傷害計算（含多段與 bonus 加值設定）
         repeat_count = self.skill_hits_input.text()
+        #武器次數依照武器類型判斷
+        #repeat_count = int(replace_custom_calls(repeat_count))
+        #print(f"repeat_count技能攻擊次數: {repeat_count}")
         bonus_add_raw = skill_row.get("bonus_add", "")
         if pd.isna(bonus_add_raw) or str(bonus_add_raw).strip() == "":
             bonus_add = 0
@@ -3423,6 +3435,7 @@ class ItemSearchApp(QWidget):
                     #最終怪物強制減傷(boss綠光)
                     final_damage = int(final_damage * get_damage_reduction_value(self))
 
+
                     if skill_hits < 0:# skill_hits < 0 表示這段總傷害要「均分」為多次
                         times = abs(skill_hits)
                         damage_by_hit = int(final_damage / times)
@@ -3449,7 +3462,7 @@ class ItemSearchApp(QWidget):
             return results
        
         
-        
+
         results = []
         results.extend(compute_and_record_damage(
             formula=formula_str,
