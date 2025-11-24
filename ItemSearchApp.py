@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.3-251122"
+Version = "v0.1.4-251122"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -117,6 +117,7 @@ from PySide6.QtWidgets import (
     QPushButton, QTabWidget, QFormLayout, QSpinBox  ,QDoubleSpinBox  ,QFrame , QGridLayout,QDialog, QListWidget,
 )
 
+from datetime import datetime
 
 enabled_skill_levels = {}  # 存放已啟用技能的等級
 global_weapon_level_map = {}#武器等級
@@ -214,8 +215,10 @@ class_map = {
 #槍手忍者 ,"point":"69/69/54"
 #704天帝 ,"point":"49/49/69/54"
 
+
 #職業名稱跟JOB補正#ROCalculator
 job_dict = {
+    0: {"id": "","id_jobneme": "","id_jobneme_OL": "","selectskill": "", "name": "", "TJobMaxPoint": [0,0,0,0,0,0,0,0,0,0,0,0],"point":"0"},
     4252: {"id": "RK","id_jobneme": "Dragon_Knight","id_jobneme_OL": "Swordman/Knight/Knight_H/Rune_Knight","selectskill": "RK/DK", "name": "盧恩龍爵", "TJobMaxPoint": [6,8,7,8,8,6,10,6,3,5,6,8],"point":"49/49/20/69/54"},
     4253: {"id": "ME","id_jobneme": "Meister","id_jobneme_OL": "Merchant/Blacksmith/Blacksmith_H/Mechanic","selectskill": "NC/MT", "name": "機甲神匠", "TJobMaxPoint": [10,6,10,6,5,6,9,10,5,0,7,7],"point":"49/49/20/69/54"},
     4254: {"id": "GX","id_jobneme": "Shadow_Cross","id_jobneme_OL": "Thief/Assassin/Assassin_H/Guillotine_Cross","selectskill": "GC/ASC/SHC", "name": "十字影武", "TJobMaxPoint": [8,11,6,5,9,4,12,8,4,0,7,7],"point":"49/49/20/69/54"},
@@ -596,27 +599,48 @@ def get_total_tstat_points(level: int) -> int:
     return TSTATUS_POINT_COSTS[index]
 
 
+
+
+
+skill_df = pd.DataFrame(columns=[#檔案不在使用硬編碼以防跳錯
+    "ID","Code","Name","attack_type","Slv","Calculation","element","hits",
+    "Critical_hit","combo","combo_element","combo_hits","Special_Calculation",
+    "monster_race","skill_buff","decay_hits","bonus_add","bonus_step"
+])
+
 # 初始化技能映射變數
 skill_map = {}
 skill_map_all = {}
 
-def load_skill_map(filepath="data/skillneme.csv"):
-    global skill_map, skill_map_all,skill_df
+def load_skill_map(filepath=None):
+    global skill_map, skill_map_all, skill_df
     import skill_tree
     import pandas as pd
-    skill_df = pd.read_csv(filepath, header=0)
-    df = pd.read_csv(filepath, header=0)
+    import os
+
+    # 若 filepath 沒指定 → 不做任何事
+    if filepath is None:
+        print("未指定路徑，使用預設空白技能列表。")
+        return
+
+    if not os.path.exists(filepath):
+        print(f"{filepath} 找不到，保留空白技能列表。")
+        return
+
+    skill_df = pd.read_csv(filepath)
 
     # === ItemSearchApp 用 ===
     skill_map = dict(zip(skill_df["ID"], skill_df["Name"]))
     skill_map_all = skill_df.set_index("ID").to_dict(orient="index")
 
     # === skill_tree 用 ===
-    skill_tree.skill_id_to_name = dict(zip(df["ID"], df["Name"]))
-    skill_tree.skill_code_to_id = dict(zip(df["Code"], df["ID"]))
-    skill_tree.skill_code_to_name = dict(zip(df["Code"], df["Name"]))
+    skill_tree.skill_id_to_name = dict(zip(skill_df["ID"], skill_df["Name"]))
+    skill_tree.skill_code_to_id = dict(zip(skill_df["Code"], skill_df["ID"]))
+    skill_tree.skill_code_to_name = dict(zip(skill_df["Code"], skill_df["Name"]))
 
-    print("技能列表已成功載入（統一版本）")
+
+    print("技能列表載入成功")
+
 
 load_skill_map() #讀取SKILL列表
 
@@ -1110,7 +1134,7 @@ class CSVEditor(QMainWindow):
                 writer = csv.writer(csvfile)
                 writer.writerow(self.headers)
                 writer.writerows(self.data)
-            load_skill_map()  # 重新載入技能列表
+            load_skill_map("data/skillneme.csv")   # 重新載入技能列表
             if close_after:
                 self.close()
         except Exception as e:
@@ -1222,6 +1246,74 @@ def open_skill_editor(app_instance=None):
             print(f"[open_skill_editor] 設定編輯器下拉式失敗：{e}")
 
 
+
+class FileSelectionDialog(QDialog):#刪除清單
+    """
+    彈出多選檔案清單：
+    files: [(檔名, 預設是否勾選)]
+    base_path: 檔案所在資料夾
+    """
+    def __init__(self, files, base_path, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("選擇要刪除的檔案")
+        self.resize(480, 400)
+
+        self.base_path = base_path
+        self.checkboxes = []
+
+        layout = QVBoxLayout(self)
+        # === 說明輸入框（新增） ===
+        desc_label = QLabel(
+            "每週更新預設只取得物品名稱、物品能力、附魔工具，\n"
+            "除非你需要更新技能、技能被動效果、技能樹相關資料。"
+        )
+        desc_label.setWordWrap(True)
+        #self.description_edit = QLineEdit()
+        #self.description_edit.setPlaceholderText("輸入此次刪除動作的說明...")
+        layout.addWidget(desc_label)
+        #layout.addWidget(self.description_edit)
+        # === scroll area ===
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        content = QWidget()
+        vbox = QVBoxLayout(content)
+
+        for filename, default_checked in files:
+            full_path = os.path.join(base_path, filename)
+            if os.path.exists(full_path):
+                mtime = datetime.fromtimestamp(os.path.getmtime(full_path))
+                date_str = mtime.strftime("%Y-%m-%d %H:%M")
+            else:
+                date_str = "（不存在）"
+
+            cb = QCheckBox(f"{filename}    ({date_str})")
+            cb.setChecked(default_checked)
+            vbox.addWidget(cb)
+            self.checkboxes.append((filename, cb))
+
+        content.setLayout(vbox)
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
+
+        # === bottom buttons ===
+        btn_box = QHBoxLayout()
+        ok_btn = QPushButton("刪除")
+        cancel_btn = QPushButton("取消")
+
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+
+        btn_box.addWidget(ok_btn)
+        btn_box.addWidget(cancel_btn)
+        layout.addLayout(btn_box)
+
+    def get_selected_files(self):
+        """回傳使用者勾選的檔案名稱 list"""
+        return [
+            filename
+            for filename, cb in self.checkboxes
+            if cb.isChecked()
+        ]
 
 
 def parse_lua_effects_with_variables(
@@ -3125,6 +3217,7 @@ class ItemSearchApp(QWidget):
         #武器次數依照武器類型判斷
         skill_hits = self.skill_hits_input.text()#攻擊次數
         skill_hits = int(replace_custom_calls(skill_hits))
+
         #print(f"技能攻擊次數: {skill_hits}")
         # === [1] 取得技能 row
         skill_row = skill_df[skill_df["Name"] == selected_skill_name]
@@ -3517,7 +3610,7 @@ class ItemSearchApp(QWidget):
             self.skill_formula_result_input.setText(f"{results[0]['skill_result']} %")
         else:
             self.skill_formula_result_input.setText("0%")
-            self.custom_calc_box.setPlainText("錯誤：無技能公式或是公式錯誤計算結果為0！")
+            self.custom_calc_box.setPlainText("錯誤：無選擇職業、無技能公式、公式錯誤計算結果為0！")
         """
         for r in results:
             #print(f"=== 第 {r['round']} 次 ===")
@@ -3711,16 +3804,16 @@ class ItemSearchApp(QWidget):
         return os.path.join(data_dir, "config.json")
 
     def load_config(self):
-        self.update_mode = "update_mode"  # 預設
+        self.update_mode = "online_only"  # 預設
         try:
             with open(self._config_path(), "r", encoding="utf-8") as f:
                 cfg = json.load(f)
-            self.update_mode = cfg.get("update_mode", self.update_mode)
+            self.update_mode = cfg.get("online_only", self.update_mode)
         except Exception:
             pass  # 第一次沒有檔案就用預設
 
     def save_config(self):
-        cfg = {"update_mode": getattr(self, "update_mode", "local_only")}
+        cfg = {"online_only": getattr(self, "online_only", "local_only")}
         try:
             with open(self._config_path(), "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=2)
@@ -4478,38 +4571,45 @@ class ItemSearchApp(QWidget):
 
 
     def recompile(self):
-        msgbox = QMessageBox(self)
-        msgbox.setWindowTitle("確認重新編譯")
-        msgbox.setText(
-            "這將刪除以下兩個檔案並重新編譯：\n\n"
-            "・EquipmentProperties.lua\n"
-            "・iteminfo_new.lua\n\n是否繼續？"
-        )
-        yes_button = msgbox.addButton("是", QMessageBox.YesRole)
-        cancel_button = msgbox.addButton("取消", QMessageBox.RejectRole)
-        msgbox.exec()
+        data_folder = os.path.join(os.getcwd(), "DATA")
 
-        if msgbox.clickedButton() == yes_button:
-            try:
-                data_folder = os.path.join(os.getcwd(), "DATA")
-                files_to_delete = ["EquipmentProperties.lua", "iteminfo_new.lua"]
+        # ===== 你要的完整清單 + 預設勾選 =====
+        files_to_delete = [
+            ("EquipmentProperties.lua", True),
+            ("iteminfo_new.lua", True),
+            ("EnchantList.lua", True),
+            ("ItemDBNameTbl.lua", True),
+            ("skill_tree.yml", False),
+            ("skilltreeview.lub", False),
+            ("skillneme.csv", False),
+            ("skillbuff.lua", False),
+        ]
 
-                for filename in files_to_delete:
-                    filepath = os.path.join(data_folder, filename)
-                    if os.path.exists(filepath):
-                        os.remove(filepath)
+        dialog = FileSelectionDialog(files_to_delete, data_folder, self)
+        if dialog.exec() != QDialog.Accepted:
+            return  # 使用者取消
 
-                msgbox = QMessageBox(self)
-                msgbox.setWindowTitle("重新編譯")
-                msgbox.setText("檔案已刪除，程式將重新啟動以重新編譯。")
-                ok_button = msgbox.addButton("確定", QMessageBox.AcceptRole)
-                msgbox.exec()
+        selected_files = dialog.get_selected_files()
+        if not selected_files:
+            QMessageBox.information(self, "取消", "沒有選擇任何檔案。")
+            return
 
-                python = sys.executable
-                os.execl(python, python, *sys.argv)
+        # ===== 刪除檔案 =====
+        try:
+            for filename in selected_files:
+                path = os.path.join(data_folder, filename)
+                if os.path.exists(path):
+                    os.remove(path)
 
-            except Exception as e:
-                QMessageBox.critical(self, "錯誤", f"發生錯誤：{str(e)}")
+            QMessageBox.information(self, "完成", "檔案已刪除，程式將重新啟動。")
+
+            python = sys.executable
+            os.execl(python, python, *sys.argv)
+
+        except Exception as e:
+            QMessageBox.critical(self, "錯誤", f"發生錯誤：{str(e)}")
+
+
 
     def update_total_effect_display(self):
         keyword = self.total_filter_input.text().strip()
@@ -5456,7 +5556,7 @@ class ItemSearchApp(QWidget):
         #self.custom_calc_box.setPlainText("\n".join(new_output))
 
 
-    def dataloading(self, mode: str = "local_only"):
+    def dataloading(self, mode: str = "online_only"):
         """
         mode:
           - "auto_missing"  : 只有在檔案缺失時才嘗試線上下載；失敗則回退本地流程（預設）
@@ -5475,11 +5575,12 @@ class ItemSearchApp(QWidget):
         # === 線上來源（已整理好的 Lua） ===
         ONLINE_ITEMINFO_URL = "https://z2911902.github.io/ROItemSearchApp/data/iteminfo_new.lua"
         ONLINE_EQUIP_URL    = "https://z2911902.github.io/ROItemSearchApp/data/EquipmentProperties.lua"
-        #ONLINE_EnchantList_URL = "https://z2911902.github.io/ROItemSearchApp/data/EnchantList.lua"
-        #ONLINE_ItemDBNameTbl_URL = "https://z2911902.github.io/ROItemSearchApp/data/ItemDBNameTbl.lua"
-        #ONLINE_skill_tree_URL = https://z2911902.github.io/ROItemSearchApp/data/skill_tree.yml"
-        #ONLINE_skilltreeview_URL = "https://z2911902.github.io/ROItemSearchApp/data/skilltreeview.lub"
-        #ONLINE_skillneme_URL = "https://z2911902.github.io/ROItemSearchApp/data/skillname.csv"
+        ONLINE_EnchantList_URL = "https://z2911902.github.io/ROItemSearchApp/data/EnchantList.lua"
+        ONLINE_ItemDBNameTbl_URL = "https://z2911902.github.io/ROItemSearchApp/data/ItemDBNameTbl.lua"
+        ONLINE_skill_tree_URL = "https://z2911902.github.io/ROItemSearchApp/data/skill_tree.yml"
+        ONLINE_skilltreeview_URL = "https://z2911902.github.io/ROItemSearchApp/data/skilltreeview.lub"
+        ONLINE_skillneme_URL = "https://z2911902.github.io/ROItemSearchApp/data/skillneme.csv"
+        ONLINE_skillbuff_URL = "https://z2911902.github.io/ROItemSearchApp/data/skillbuff.lua"
 
         # === 路徑設定 ===
         if getattr(sys, 'frozen', False):
@@ -5491,11 +5592,12 @@ class ItemSearchApp(QWidget):
         os.makedirs(data_dir, exist_ok=True)
         iteminfo_path      = os.path.join(data_dir, "iteminfo_new.lua")
         equipment_lua_path = os.path.join(data_dir, "EquipmentProperties.lua")
-        # EnchantList_path  = os.path.join(data_dir, "EnchantList.lua")
-        # ItemDBNameTbl_path  = os.path.join(data_dir, "ItemDBNameTbl.lua")
-        # skill_tree_path  = os.path.join(data_dir, "skill_tree.yml")
-        # skilltreeview_path  = os.path.join(data_dir, "skilltreeview.lub")
-        # skillneme_path  = os.path.join(data_dir, "skillname.csv")
+        EnchantList_path  = os.path.join(data_dir, "EnchantList.lua")
+        ItemDBNameTbl_path  = os.path.join(data_dir, "ItemDBNameTbl.lua")
+        skill_tree_path  = os.path.join(data_dir, "skill_tree.yml")
+        skilltreeview_path  = os.path.join(data_dir, "skilltreeview.lub")
+        skillneme_path  = os.path.join(data_dir, "skillneme.csv")        
+        skillbuff_path  = os.path.join(data_dir, "skillbuff.lua")
 
         # === 內嵌小工具 ===
         def _fmt_bytes(n: int) -> str:
@@ -5577,22 +5679,43 @@ class ItemSearchApp(QWidget):
 
 
 
-        def _looks_like_lua_quick(path: str) -> bool:
+        def _looks_like_file_quick(path: str) -> bool:
+            """根據副檔名做快速檢查，避免把下載後的 HTML/錯誤當成合法檔案。"""
+            ext = os.path.splitext(path)[1].lower()
+
             try:
                 with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                    txt = f.read(4096)
-                if "<html" in txt.lower():
-                    return False
-                return any(k in txt for k in ("return", "=", "{", "ItemInfo", "EquipmentProperties"))
+                    txt = f.read(4096).lower()
             except:
                 return False
+
+            # --- 檢查是否 HTML（常見錯誤：下載失敗 → 拿到 404 HTML 頁面）---
+            if "<html" in txt or "<!doctype html" in txt:
+                return False
+
+            # --- 不同副檔名分類判斷 ---
+            if ext in (".lua", ".lub"):
+                # Lua / Lub
+                return any(k in txt for k in ("return", "=", "{", "iteminfo", "equipmentproperties"))
+
+            elif ext == ".yml":
+                # YAML
+                return any(c in txt for c in (":", "-", "true", "false"))
+
+            elif ext == ".csv":
+                # CSV
+                return ("," in txt or ";" in txt) and "\n" in txt
+
+            else:
+                # 未知類型 → 保守返回 True（你可改成 False）
+                return True
 
         def _try_online_for(targets):
             """targets: [(url, dest_path), ...]；回傳是否成功至少一個"""
             updated = False
             for url, dest in targets:
                 ok = _download_with_progress(url, dest)
-                if ok and not _looks_like_lua_quick(dest):
+                if ok and not _looks_like_file_quick(dest):
                     print(f"⚠️ 檔案格式可疑（非 Lua？）：{os.path.basename(dest)}")
                 updated = updated or ok
             return updated
@@ -5740,6 +5863,15 @@ class ItemSearchApp(QWidget):
         # === 判斷缺檔 ===
         miss_item  = not os.path.exists(iteminfo_path)
         miss_equip = not os.path.exists(equipment_lua_path)
+        miss_EnchantList  = not os.path.exists(EnchantList_path)
+        miss_ItemDBNameTbl  = not os.path.exists(ItemDBNameTbl_path)
+        miss_skill_tree  = not os.path.exists(skill_tree_path)
+        miss_skilltreeview  = not os.path.exists(skilltreeview_path)
+        miss_skillneme = not os.path.exists(skillneme_path)
+        miss_skillbuff = not os.path.exists(skillbuff_path)
+
+
+
 
         # === 模式分流 ===
         if mode == "online_prefer":
@@ -5753,18 +5885,7 @@ class ItemSearchApp(QWidget):
                 print("⚠️ 線上仍不齊全 → 回退本地補齊")
                 if not local_fill_missing():
                     print("❌ 本地補齊失敗"); return
-        elif mode == "online_only":
-            # 只線上：若本地已存在就不下載；只有缺檔才下載。失敗則停止。
-            print(f"編譯方式 : 📦 線上模式")
-            targets = []
-            if miss_item:  targets.append((ONLINE_ITEMINFO_URL, iteminfo_path))
-            if miss_equip: targets.append((ONLINE_EQUIP_URL,    equipment_lua_path))
-            if targets:
-                _try_online_for(targets)
-            # 下載後再檢查一次，若仍缺則停止（不回退本地）
-            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)):
-                print("❌ online_only 模式：仍有檔案缺失，停止（不回退本地）")
-                return
+
         elif mode == "auto_missing":
             if miss_item or miss_equip:
                 targets = []
@@ -5783,23 +5904,44 @@ class ItemSearchApp(QWidget):
             if not local_rebuild_all():
                 print("❌ 強制本地重建失敗"); return
         else:
-            print(f"ℹ️ 未知模式 {mode}，使用預設 auto_missing")
-            if miss_item or miss_equip:
-                targets = []
-                if miss_item:  targets.append((ONLINE_ITEMINFO_URL, iteminfo_path))
-                if miss_equip: targets.append((ONLINE_EQUIP_URL,    equipment_lua_path))
+            print(f"ℹ️ 未設定模式，使用預設 online_only")
+            # 只線上：若本地已存在就不下載；只有缺檔才下載。失敗則停止。            
+            targets = []
+            if miss_item:  targets.append((ONLINE_ITEMINFO_URL, iteminfo_path))
+            if miss_equip: targets.append((ONLINE_EQUIP_URL,    equipment_lua_path))
+            if miss_EnchantList: targets.append((ONLINE_EnchantList_URL,    EnchantList_path))
+            if miss_ItemDBNameTbl: targets.append((ONLINE_ItemDBNameTbl_URL,    ItemDBNameTbl_path))
+            if miss_skill_tree: targets.append((ONLINE_skill_tree_URL,    skill_tree_path))
+            if miss_skilltreeview: targets.append((ONLINE_skilltreeview_URL,    skilltreeview_path))
+            if miss_skillneme: targets.append((ONLINE_skillneme_URL,    skillneme_path))
+            if miss_skillbuff: targets.append((ONLINE_skillbuff_URL,    skillbuff_path))
+            if targets:
                 _try_online_for(targets)
-            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)):
-                if not local_fill_missing():
-                    print("❌ 本地補齊失敗"); return
+            # 下載後再檢查一次，若仍缺則停止（不回退本地）
+            required_files = [
+                iteminfo_path,
+                equipment_lua_path,
+                EnchantList_path,
+                ItemDBNameTbl_path,
+                skill_tree_path,
+                skilltreeview_path,
+                skillneme_path,
+                skillbuff_path,
+            ]
+            if not all(os.path.exists(path) for path in required_files):
+                print("❌ online_only 模式：仍有檔案缺失，停止")
+                return
 
         # === 載入（無論來源） ===
-        print("📖 載入 iteminfo_new.lua 與 EquipmentProperties.lua...")
+        print("📖 載入 物品列表 ...")
         self.parsed_items = parse_lub_file(iteminfo_path)
+        print("📖 載入 載入物品效果...")
         with open(equipment_lua_path, "r", encoding="utf-8") as f:
             content = f.read()
         self.equipment_data = self.parse_equipment_blocks(content)
-        self.parsed_items = resolve_name_conflicts(self.parsed_items ,self.equipment_data)
+        print("📖 載入 技能清單...")
+        load_skill_map("data/skillneme.csv") #讀取SKILL列表
+        self.parsed_items = resolve_name_conflicts(self.parsed_items ,self.equipment_data)#重複物品名稱加上id
         print("🎉 載入完成")
         return self.parsed_items
 
