@@ -224,7 +224,7 @@ job_dict = {
     4254: {"id": "GX","id_jobneme": "Shadow_Cross","id_jobneme_OL": "Thief/Assassin/Assassin_H/Guillotine_Cross","selectskill": "GC/ASC/SHC", "name": "十字影武", "TJobMaxPoint": [8,11,6,5,9,4,12,8,4,0,7,7],"point":"49/49/20/69/54"},
     4255: {"id": "WL","id_jobneme": "Arch_Mage","id_jobneme_OL": "Magician/Wizard/Wizard_H/Warlock","selectskill": "WL/AG", "name": "禁咒魔導士", "TJobMaxPoint": [1,7,8,15,8,4,0,8,7,13,9,1],"point":"49/49/20/69/54"},
     4256: {"id": "AB","id_jobneme": "Cardinal","id_jobneme_OL": "Acolyte/Priest/Priest_H/Archbishop","selectskill": "AB/CD", "name": "樞機主教", "TJobMaxPoint": [6,7,7,12,7,4,8,5,5,9,4,7],"point":"49/49/20/69/54"},
-    4257: {"id": "RA","id_jobneme": "Wind_Hawk","id_jobneme_OL": "Archer/Hunter/Hunter_H/Ranger","selectskill": "SN/RA/WH", "name": "風鷹狩獵者", "TJobMaxPoint": [2,12,8,9,8,4,9,5,5,4,11,4],"point":"49/49/20/69/54"},
+    4257: {"id": "RA","id_jobneme": "Windhawk","id_jobneme_OL": "Archer/Hunter/Hunter_H/Ranger","selectskill": "SN/RA/WH", "name": "風鷹狩獵者", "TJobMaxPoint": [2,12,8,9,8,4,9,5,5,4,11,4],"point":"49/49/20/69/54"},
     4258: {"id": "RG","id_jobneme": "Imperial_Guard","id_jobneme_OL": "Swordman/Crusader/Crusader_H/Royal_Guard","selectskill": "LG/PA/IG", "name": "帝國聖衛軍", "TJobMaxPoint": [9,3,9,10,9,3,7,11,6,7,4,3],"point":"49/49/20/69/54"},
     4259: {"id": "GE","id_jobneme": "Biolo","id_jobneme_OL": "Merchant/Alchemist/Alchemist_H/Genetic","selectskill": "GN/CR/BO", "name": "生命締造者", "TJobMaxPoint": [5,6,8,12,8,4,7,4,4,4,7,12],"point":"49/49/20/69/54"},
     4260: {"id": "SC","id_jobneme": "Abyss_Chaser","id_jobneme_OL": "Thief/Rogue/Rogue_H/Shadow_Chaser","selectskill": "SC/ABC", "name": "深淵追跡者", "TJobMaxPoint": [8,9,8,6,6,6,8,8,4,7,5,6],"point":"49/49/20/69/54"},
@@ -326,7 +326,7 @@ weapon_type_size_penalty = {#物體武器體型修正
 
 
 excluded_stat_names = {#過濾不顯示到效果
-    "防具等級"
+    "防具等級","武器等級","武器類型"
     }
 
 # 定義多組排序規則
@@ -2356,7 +2356,8 @@ def convert_description_to_html(description_lines):#視覺化說明欄
 
     return "<br>".join(html_lines)
 
-def decompile_lub(lub_path, output_path="iteminfo_new.lua"):#反編譯iteminfo_new
+def decompile_lub(lub_path, output_path):
+    """使用 luadec.exe 反編譯 LUB → LUA"""
     if not os.path.exists(lub_path):
         QMessageBox.critical(None, "錯誤", f"找不到 LUB 檔案：\n{lub_path}")
         return False
@@ -2369,13 +2370,17 @@ def decompile_lub(lub_path, output_path="iteminfo_new.lua"):#反編譯iteminfo_n
                 stderr=subprocess.PIPE,
                 check=True
             )
+        print(f"✨ LUB 已反編譯 -> {output_path}")
         return True
+
     except subprocess.CalledProcessError as e:
         QMessageBox.critical(None, "反編譯失敗", e.stderr.decode("utf-8", errors="ignore"))
         return False
+
     except FileNotFoundError:
-        QMessageBox.critical(None, "錯誤", "找不到 luadec.exe，請確認它放在data資料夾。")
+        QMessageBox.critical(None, "錯誤", "找不到 luadec.exe，請確認它放在 APP 資料夾。")
         return False
+
 
 def parse_lub_file(filename):#字典化物品列表
 
@@ -5559,11 +5564,8 @@ class ItemSearchApp(QWidget):
     def dataloading(self, mode: str = "online_only"):
         """
         mode:
-          - "auto_missing"  : 只有在檔案缺失時才嘗試線上下載；失敗則回退本地流程（預設）
-          - "online_prefer" : 優先使用線上（兩檔都嘗試下載覆蓋）；失敗再回退本地
           - "online_only"   : 只用線上來源；但若本地已存在就不下載。缺檔才下載；失敗不回退本地
           - "local_only"    : 完全不碰網路；若缺檔才走本地解譯
-          - "local_rebuild" : 強制本地重建（刪除既有 lua 後重建；不碰網路）
         需求：專案中已定義 decompile_lub(), parse_lub_file(), self.parse_equipment_blocks()
         """
         import os, sys, re, subprocess, time
@@ -5723,26 +5725,34 @@ class ItemSearchApp(QWidget):
         # === 本地（GRF 解出/反編譯/整理）流程子函式（供回退/重建用） ===
         GRFCL_EXE    = os.path.join(BASE_DIR, "APP", "GrfCL.exe")
         GRF_PATH     = r"C:\Program Files (x86)\Gravity\RagnarokOnline\data.grf"
-        UNLUAC_JAR   = os.path.join(BASE_DIR, "APP", "unluac.jar")
-        INPUT_FILE   = os.path.join(BASE_DIR, "data", "LuaFiles514", "Lua Files", "EquipmentProperties", "EquipmentProperties.lub")
-        OUTPUT_FILE  = equipment_lua_path
+        UNLUAC_JAR   = os.path.join(BASE_DIR, "APP", "unluac.jar")        
+        
 
-        def extract_lub_from_grf():
+        def extract_lub_from_grf(relative_path: str) -> bool:
+            """從 GRF 解出指定 LUB 檔案。relative_path 必須像：
+               data\\LuaFiles514\\Lua Files\\Enchant\\EnchantList.lub
+            """
             if not os.path.exists(GRFCL_EXE):
-                print(f" 找不到 GrfCL.exe：{GRFCL_EXE}")
+                print(f"找不到 GrfCL.exe：{GRFCL_EXE}")
                 return False
-            print("📦 正在從 GRF 解壓 LUB 檔...")
+
+            print(f"📦 正在從 GRF 解壓：{relative_path}")
             result = subprocess.run([
                 GRFCL_EXE,
                 "-open", GRF_PATH,
                 "-extractFolder", ".",
-                "data\\LuaFiles514\\Lua Files\\EquipmentProperties\\EquipmentProperties.lub",
+                relative_path,
                 "-exit"
             ], cwd=BASE_DIR, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
             if result.returncode != 0:
-                print(" 解壓失敗：")
-                print(result.stderr); return False
-            print(" 解壓完成"); return True
+                print("❌ 解壓失敗：")
+                print(result.stderr)
+                return False
+
+            print("✅ 解壓完成")
+            return True
+
 
         def run_unluac(lub_file, lua_file):
             os.makedirs(data_dir, exist_ok=True)
@@ -5785,80 +5795,75 @@ class ItemSearchApp(QWidget):
             with open(lua_file, "w", encoding="utf-8") as f:
                 f.write(code)
 
-        def local_rebuild_all():
-            """強制本地重建兩檔（刪舊→反編譯/整理）。"""
-            # 1) iteminfo
-            lub_path = r"C:\Program Files (x86)\Gravity\RagnarokOnline\System\iteminfo_new.lub"
-            if os.path.exists(iteminfo_path):
-                try: os.remove(iteminfo_path)
-                except Exception as e: print(f"⚠️ 無法刪除 {iteminfo_path}：{e}")
-            print(f"⚙️ 反編譯 {lub_path} → {iteminfo_path}")
-            if not decompile_lub(lub_path, iteminfo_path):
-                print("❌ 反編譯 iteminfo 失敗"); return False
-
-            # 2) EquipmentProperties
-            if os.path.exists(equipment_lua_path):
-                try: os.remove(equipment_lua_path)
-                except Exception as e: print(f"⚠️ 無法刪除 {equipment_lua_path}：{e}")
-
-            print("📦 準備解出 EquipmentProperties.lub...")
-            if not extract_lub_from_grf():
-                print("❌ 從 GRF 解出失敗"); return False
-            if not os.path.exists(INPUT_FILE):
-                print(f"❌ 找不到檔案: {INPUT_FILE}"); return False
-            if not os.path.exists(UNLUAC_JAR):
-                print(f"❌ 找不到 unluac.jar，請放在 APP 資料夾中"); return False
-
-            print("🧩 正在反編譯 unluac...")
-            run_unluac(INPUT_FILE, equipment_lua_path)
-            print("🧹 正在整理 Lua 格式...")
-            clean_lua_format(equipment_lua_path)
-
-            temp_folder = os.path.join(BASE_DIR, "data", "LuaFiles514")
-            if os.path.exists(temp_folder):
-                try:
-                    import shutil; shutil.rmtree(temp_folder)
-                    print(f"🗑️ 已刪除暫存資料夾")
-                except Exception as e:
-                    print(f"⚠️ 刪除暫存資料夾失敗：{e}")
-            return True
 
         def local_fill_missing():
             """本地方式補齊缺檔（有就不動）。"""
-            # iteminfo
+
+            # --- iteminfo_new.lub（使用 decompile_lub） ---
             if not os.path.exists(iteminfo_path):
                 lub_path = r"C:\Program Files (x86)\Gravity\RagnarokOnline\System\iteminfo_new.lub"
                 print(f"⚙️ 反編譯 {lub_path} → {iteminfo_path}")
                 if not decompile_lub(lub_path, iteminfo_path):
-                    print("❌ 反編譯 iteminfo 失敗"); return False
+                    print("❌ 反編譯 iteminfo 失敗")
+                    return False
             else:
                 print("✅ iteminfo_new.lua 已存在，略過反編譯")
 
-            # equipment
+            # --- EquipmentProperties.lub（使用 unluac） ---
             if not os.path.exists(equipment_lua_path):
-                print("📦 準備解出 EquipmentProperties.lub...")
-                if not extract_lub_from_grf():
-                    print("❌ 從 GRF 解出失敗"); return False
-                if not os.path.exists(INPUT_FILE):
-                    print(f"❌ 找不到檔案: {INPUT_FILE}"); return False
-                if not os.path.exists(UNLUAC_JAR):
-                    print(f"❌ 找不到 unluac.jar，請放在 APP 資料夾中"); return False
+                print("📦 解出 EquipmentProperties.lub...")
+                equip_lub_rel = r"data\LuaFiles514\Lua Files\EquipmentProperties\EquipmentProperties.lub"
+                if not extract_lub_from_grf(equip_lub_rel):
+                    print("❌ 解壓 EquipmentProperties.lub 失敗")
+                    return False
+
+                # GRF 解出後實際 LUB 檔案位置
+                equip_lub_src = os.path.join(BASE_DIR, equip_lub_rel)
 
                 print("🧩 正在反編譯 unluac...")
-                run_unluac(INPUT_FILE, equipment_lua_path)
+                run_unluac(equip_lub_src, equipment_lua_path)
+
                 print("🧹 正在整理 Lua 格式...")
                 clean_lua_format(equipment_lua_path)
-
-                temp_folder = os.path.join(BASE_DIR, "data", "LuaFiles514")
-                if os.path.exists(temp_folder):
-                    try:
-                        import shutil; shutil.rmtree(temp_folder)
-                        print(f"🗑️ 已刪除暫存資料夾")
-                    except Exception as e:
-                        print(f"⚠️ 刪除暫存資料夾失敗：{e}")
             else:
-                print("✅ EquipmentProperties.lua 已存在，略過編譯處理")
+                print("✅ EquipmentProperties.lua 已存在")
+
+            # --- EnchantList.lub（使用 decompile_lub） ---
+            if not os.path.exists(EnchantList_path):
+                print("📦 解出 EnchantList.lub...")
+                ench_rel = r"data\LuaFiles514\Lua Files\Enchant\EnchantList.lub"
+                if extract_lub_from_grf(ench_rel):
+                    ench_src = os.path.join(BASE_DIR, ench_rel)
+                    print("🧩 使用 luadec 反編譯 EnchantList...")
+                    if not decompile_lub(ench_src, EnchantList_path):
+                        print("❌ 反編譯 EnchantList 失敗")
+                        return False
+            else:
+                print("✅ EnchantList.lua 已存在")
+
+            # --- ItemDBNameTbl.lub（使用 unluac） ---
+            if not os.path.exists(ItemDBNameTbl_path):
+                print("📦 解出 ItemDBNameTbl.lub...")
+                db_rel = r"data\LuaFiles514\Lua Files\ItemDBNameTbl.lub"
+                if extract_lub_from_grf(db_rel):
+                    db_src = os.path.join(BASE_DIR, db_rel)
+                    print("🧩 使用 unluac 反編譯 ItemDBNameTbl...")
+                    run_unluac(db_src, ItemDBNameTbl_path)
+            else:
+                print("✅ ItemDBNameTbl.lua 已存在")
+
+            # --- 全部完成後刪除 GRF 解出來的暫存 LuaFiles514 ---
+            temp_folder = os.path.join(BASE_DIR, "data", "LuaFiles514")
+            if os.path.exists(temp_folder):
+                try:
+                    import shutil
+                    shutil.rmtree(temp_folder)
+                    print(f"🗑️ 已刪除暫存資料夾：{temp_folder}")
+                except Exception as e:
+                    print(f"⚠️ 刪除暫存資料夾失敗：{e}")
             return True
+
+
 
         # === 判斷缺檔 ===
         miss_item  = not os.path.exists(iteminfo_path)
@@ -5874,37 +5879,13 @@ class ItemSearchApp(QWidget):
 
 
         # === 模式分流 ===
-        if mode == "online_prefer":
-            # 覆蓋下載（不檢查是否已存在）
-            _try_online_for([
-                (ONLINE_ITEMINFO_URL, iteminfo_path),
-                (ONLINE_EQUIP_URL,    equipment_lua_path)
-            ])
-            have_both = os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)
-            if not have_both:
-                print("⚠️ 線上仍不齊全 → 回退本地補齊")
-                if not local_fill_missing():
-                    print("❌ 本地補齊失敗"); return
-
-        elif mode == "auto_missing":
-            if miss_item or miss_equip:
-                targets = []
-                if miss_item:  targets.append((ONLINE_ITEMINFO_URL, iteminfo_path))
-                if miss_equip: targets.append((ONLINE_EQUIP_URL,    equipment_lua_path))
-                _try_online_for(targets)
-            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)):
-                if not local_fill_missing():
-                    print("❌ 本地補齊失敗"); return
-        elif mode == "local_only":
+        if mode == "local_only":
             print(f"編譯方式 📖 本機模式")
-            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path)):
+            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path) and os.path.exists(EnchantList_path) and os.path.exists(ItemDBNameTbl_path)):
                 if not local_fill_missing():
                     print("❌ 本地補齊失敗"); return
-        elif mode == "local_rebuild":
-            if not local_rebuild_all():
-                print("❌ 強制本地重建失敗"); return
         else:
-            print(f"ℹ️ 未設定模式，使用預設 online_only")
+            print(f"編譯方式 ☁️ 線上模式")
             # 只線上：若本地已存在就不下載；只有缺檔才下載。失敗則停止。            
             targets = []
             if miss_item:  targets.append((ONLINE_ITEMINFO_URL, iteminfo_path))
