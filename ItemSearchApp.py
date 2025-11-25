@@ -6,6 +6,7 @@ from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
 from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QPlainTextEdit, QLabel
 import enchant #載入附魔工具
 import skill_tree #載入技能樹
+import reform_viewer #載入改造工具
 
 class InitWorker(QThread):
     log_signal = Signal(str)
@@ -2582,16 +2583,28 @@ class PreferencesDialog(QDialog):
 class ItemSearchApp(QWidget):
     def open_enchant_tool(self):#附魔工具
         # 載入所需資料
-        #item_data = enchant.parse_lub_file("data\iteminfo_new.lua")
         item_data = self.parsed_items
         itemdb = enchant.parse_itemdb_name_tbl("data/ItemDBNameTbl.lua")
         enchant_data = enchant.parse_enchant_list("data/EnchantList.lua")
 
         # 建立 UI
         self.enchant_window = enchant.EnchantUI(enchant_data, item_data, itemdb)
-        self.enchant_window.setWindowTitle("附魔工具")
+        self.enchant_window.setWindowTitle("附魔查詢工具")
         self.enchant_window.resize(900, 600)
         self.enchant_window.show()
+
+    def open_reform_tool(self):#改造工具
+        # 載入所需資料
+        item_data = self.parsed_items
+        reform = reform_viewer.parse_reform_info("data/ItemReformSystem.lua")
+        reform_item_list = reform_viewer.parse_reform_item_list("data/ItemReformSystem.lua")
+        itemdb = reform_viewer.parse_itemdb_name_tbl("data/ItemDBNameTbl.lua")
+
+        # 建立 UI
+        self.reform_viewer_window = reform_viewer.ReformUI(reform, item_data, itemdb, reform_item_list)
+        self.reform_viewer_window.setWindowTitle("改造查詢工具")
+        self.reform_viewer_window.resize(700, 600)
+        self.reform_viewer_window.show()
 
 
 
@@ -4584,6 +4597,7 @@ class ItemSearchApp(QWidget):
             ("iteminfo_new.lua", True),
             ("EnchantList.lua", True),
             ("ItemDBNameTbl.lua", True),
+            ("ItemReformSystem.lua", True),
             ("skill_tree.yml", False),
             ("skilltreeview.lub", False),
             ("skillneme.csv", False),
@@ -5579,6 +5593,7 @@ class ItemSearchApp(QWidget):
         ONLINE_EQUIP_URL    = "https://z2911902.github.io/ROItemSearchApp/data/EquipmentProperties.lua"
         ONLINE_EnchantList_URL = "https://z2911902.github.io/ROItemSearchApp/data/EnchantList.lua"
         ONLINE_ItemDBNameTbl_URL = "https://z2911902.github.io/ROItemSearchApp/data/ItemDBNameTbl.lua"
+        ONLINE_ItemReformSystem_URL = "https://z2911902.github.io/ROItemSearchApp/data/ItemReformSystem.lua"
         ONLINE_skill_tree_URL = "https://z2911902.github.io/ROItemSearchApp/data/skill_tree.yml"
         ONLINE_skilltreeview_URL = "https://z2911902.github.io/ROItemSearchApp/data/skilltreeview.lub"
         ONLINE_skillneme_URL = "https://z2911902.github.io/ROItemSearchApp/data/skillneme.csv"
@@ -5596,6 +5611,7 @@ class ItemSearchApp(QWidget):
         equipment_lua_path = os.path.join(data_dir, "EquipmentProperties.lua")
         EnchantList_path  = os.path.join(data_dir, "EnchantList.lua")
         ItemDBNameTbl_path  = os.path.join(data_dir, "ItemDBNameTbl.lua")
+        ItemReformSystem_path  = os.path.join(data_dir, "ItemReformSystem.lua")
         skill_tree_path  = os.path.join(data_dir, "skill_tree.yml")
         skilltreeview_path  = os.path.join(data_dir, "skilltreeview.lub")
         skillneme_path  = os.path.join(data_dir, "skillneme.csv")        
@@ -5841,6 +5857,19 @@ class ItemSearchApp(QWidget):
             else:
                 print("✅ EnchantList.lua 已存在")
 
+            # --- ItemReformSystem.lub（使用 decompile_lub） ---
+            if not os.path.exists(ItemReformSystem_path):
+                print("📦 解出 ItemReformSystem.lub...")
+                ench_rel = r"data\LuaFiles514\Lua Files\ItemReform\ItemReformSystem.lub"
+                if extract_lub_from_grf(ench_rel):
+                    ench_src = os.path.join(BASE_DIR, ench_rel)
+                    print("🧩 使用 luadec 反編譯 ItemReformSystem...")
+                    if not decompile_lub(ench_src, EnchantList_path):
+                        print("❌ 反編譯 ItemReformSystem 失敗")
+                        return False
+            else:
+                print("✅ ItemReformSystem.lua 已存在")
+
             # --- ItemDBNameTbl.lub（使用 unluac） ---
             if not os.path.exists(ItemDBNameTbl_path):
                 print("📦 解出 ItemDBNameTbl.lub...")
@@ -5870,6 +5899,7 @@ class ItemSearchApp(QWidget):
         miss_equip = not os.path.exists(equipment_lua_path)
         miss_EnchantList  = not os.path.exists(EnchantList_path)
         miss_ItemDBNameTbl  = not os.path.exists(ItemDBNameTbl_path)
+        miss_ItemReformSystem  = not os.path.exists(ItemReformSystem_path)
         miss_skill_tree  = not os.path.exists(skill_tree_path)
         miss_skilltreeview  = not os.path.exists(skilltreeview_path)
         miss_skillneme = not os.path.exists(skillneme_path)
@@ -5881,7 +5911,7 @@ class ItemSearchApp(QWidget):
         # === 模式分流 ===
         if mode == "local_only":
             print(f"編譯方式 📖 本機模式")
-            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path) and os.path.exists(EnchantList_path) and os.path.exists(ItemDBNameTbl_path)):
+            if not (os.path.exists(iteminfo_path) and os.path.exists(equipment_lua_path) and os.path.exists(EnchantList_path) and os.path.exists(ItemDBNameTbl_path) and os.path.exists(ItemReformSystem_path)):
                 if not local_fill_missing():
                     print("❌ 本地補齊失敗"); return
         else:
@@ -5892,6 +5922,7 @@ class ItemSearchApp(QWidget):
             if miss_equip: targets.append((ONLINE_EQUIP_URL,    equipment_lua_path))
             if miss_EnchantList: targets.append((ONLINE_EnchantList_URL,    EnchantList_path))
             if miss_ItemDBNameTbl: targets.append((ONLINE_ItemDBNameTbl_URL,    ItemDBNameTbl_path))
+            if miss_ItemReformSystem: targets.append((ONLINE_ItemReformSystem_URL,    ItemReformSystem_path))
             if miss_skill_tree: targets.append((ONLINE_skill_tree_URL,    skill_tree_path))
             if miss_skilltreeview: targets.append((ONLINE_skilltreeview_URL,    skilltreeview_path))
             if miss_skillneme: targets.append((ONLINE_skillneme_URL,    skillneme_path))
@@ -7338,6 +7369,12 @@ class ItemSearchApp(QWidget):
         enchant_action.triggered.connect(self.open_enchant_tool)
 
         gamedata_menu.addAction(enchant_action)
+
+        # === 建立選單：附魔工具 ===
+        reform_action = QAction("改造查詢工具", self)
+        reform_action.triggered.connect(self.open_reform_tool)
+
+        gamedata_menu.addAction(reform_action)
             # === 建立選單：技能欄 ===
         # skill_tree_action = QAction("技能欄", self)
         # skill_tree_action.triggered.connect(self.open_skill_tree)
