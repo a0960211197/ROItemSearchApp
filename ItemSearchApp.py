@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.5-251125"
+Version = "v0.1.6-251126"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -1576,6 +1576,15 @@ def parse_lua_effects_with_variables(
         if line == "end":
             if block_stack:
                 block_stack.pop()
+
+            # --- 🔧 重置 condition_met 並回到父層狀態 ---
+            # 若目前仍在某些區塊內，就依照父層 active 狀態決定
+            if block_stack:
+                condition_met = all(block['active'] for block in block_stack)
+            else:
+                # 已經完全跳出 if/elseif/else 區塊，重置為 True
+                condition_met = True
+
             continue
 
         # 一般語句判斷
@@ -7370,7 +7379,7 @@ class ItemSearchApp(QWidget):
 
         gamedata_menu.addAction(enchant_action)
 
-        # === 建立選單：附魔工具 ===
+        # === 建立選單：改造工具 ===
         reform_action = QAction("改造查詢工具", self)
         reform_action.triggered.connect(self.open_reform_tool)
 
