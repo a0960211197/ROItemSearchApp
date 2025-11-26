@@ -32,84 +32,6 @@ def read_text_with_fallback(path):
     return data
 
 
-# ---------------------------------------------------------------
-# 解析 iteminfo_new.lua   => {item_id: {"name": 顯示名, "kr_name": 資源名}}
-# ---------------------------------------------------------------
-def parse_lub_file(filename):#字典化物品列表
-
-
-    try:
-        with open(filename, "r", encoding="utf-8") as file:
-            content = file.read()
-    except FileNotFoundError:
-        QMessageBox.critical(None, "錯誤", f"找不到檔案：{filename}")
-        return {}
-
-    item_entries = re.findall(
-        r"\[(\d+)\]\s*=\s*{(.*?)}(?=,\s*\[\d+\]|\s*\[\d+\]|\s*$)",
-        content,
-        re.DOTALL
-    )
-
-    parsed_items = {}
-    total = len(item_entries)
-    print(f"📦 開始讀取 {os.path.basename(filename)}，共 {total} 筆物品資料。")
-    
-    
-    
-    #for item_id, body in item_entries:
-    for index, (item_id, body) in enumerate(item_entries, start=1):
-        
-        try:
-            
-            print(f"  → 正在讀取第 {index}/{total} 筆", end="\r")
-            item_id = int(item_id)
-            identified_name = re.search(r'(?<!un)identifiedDisplayName\s*=\s*"([^"]+)"', body)
-
-            kr_name = re.search(r'(?<!un)identifiedResourceName\s*=\s*"([^"]+)"', body)
-            slot = re.search(r'slotCount\s*=\s*(\d+)', body)
-
-            desc_match = re.search(r'(?<!un)identifiedDescriptionName\s*=\s*{(.*?)}', body, re.DOTALL)
-            if desc_match:
-                desc_body = desc_match.group(1)
-                desc_lines_raw = re.findall(r'"([^"]*)"', desc_body)
-                desc_lines = []
-                for line in desc_lines_raw:
-                    cleaned = line.strip()
-                    # 控制碼行過濾，但保留真正空白行
-                    if re.fullmatch(r"\^?[a-fA-F0-9]+", cleaned):
-                        continue
-                    elif cleaned == "":
-                        desc_lines.append("")  # 保留空白行
-                    else:
-                        desc_lines.append(cleaned)
-
-
-            else:
-                desc_lines = []
-            
-            if identified_name and kr_name and slot:
-                base_name = identified_name.group(1).strip()
-                slot_count = int(slot.group(1))
-
-                # ✅ 名稱加上孔數
-                if slot_count > 0:
-                    display_name = f"{base_name} [{slot_count}]"
-                else:
-                    display_name = base_name
-
-                parsed_items[item_id] = {
-                    "name": display_name,           # 已經含孔數
-                    "base_name": base_name,         # 如果以後要用純名稱，可以保留
-                    "kr_name": kr_name.group(1).strip(),
-                    "description": desc_lines,
-                    "slot": slot_count
-                }
-
-        except Exception:
-            continue
-    print(f"\n✅ 讀取完成，共成功解析 {len(parsed_items)} 筆。")
-    return parsed_items
 
 
 # ---------------------------------------------------------------
@@ -539,71 +461,6 @@ class EnchantUI(QWidget):
         self.list_items.currentTextChanged.connect(self.select_equipment)
 
 
-
-    # def show_materials(self, row, col):
-    #     tab_index = self.tabs.currentIndex()
-    #     tab_widget = self.tabs.widget(tab_index)
-
-    #     table = tab_widget.findChild(QTableWidget)
-    #     if not table:
-    #         return
-
-    #     item = table.item(row, 1)
-    #     if not item:
-    #         return
-
-    #     data = item.data(Qt.UserRole)
-    #     if not data:
-    #         return
-
-    #     mlist = []
-
-    #     # 取得 slot info
-    #     equip_name = self.list_items.currentItem().text()
-    #     tid = self.all_target_items[equip_name]
-    #     info = self.parsed[tid]
-
-    #     slot_order = list(reversed(info["slot_order"]))
-    #     sid = slot_order[tab_index]
-    #     slot_info = info["slots"].get(sid)
-
-    #     # -------------------------------------------------------
-    #     # ① 只有一般附魔(enchant) 才讀取 SetRequire 材料
-    #     # -------------------------------------------------------
-    #     if data["type"] == "enchant":
-    #         if slot_info and "require" in slot_info:
-    #             for name, cnt in slot_info["require"]["materials"]:
-    #                 mlist.append((self.resolve_item_name(name), cnt))
-
-    #     # -------------------------------------------------------
-    #     # ② 個別附魔（perfect / upgrade / perfect_upgrade / random_upgrade）
-    #     # -------------------------------------------------------
-    #     if data["type"] in ("perfect", "upgrade", "perfect_upgrade"):
-    #         for name, cnt in data["materials"]:
-    #             mlist.append((self.resolve_item_name(name), cnt))
-
-    #     # 機率升階一般沒有材料
-    #     # if data["type"] == "random_upgrade": pass
-    #     elif data["type"] == "random_upgrade":
-    #         mats = data.get("materials", [])
-    #         for name, cnt in mats:
-    #             mlist.append((self.resolve_item_name(name), cnt))
-
-    #     # -------------------------------------------------------
-    #     # 顯示
-    #     # -------------------------------------------------------
-    #     if not mlist:
-    #         QMessageBox.information(self, "材料", "此附魔不需要額外材料。")
-    #         return
-
-    #     msg = ""
-    #     for name, cnt in mlist:
-    #         msg += f"● {name} × {cnt}\n"
-
-    #     QMessageBox.information(self, "材料", msg)
-
-
-
     def show_materials(self, row, col):
         tab_index = self.tabs.currentIndex()
         tab_widget = self.tabs.widget(tab_index)
@@ -621,94 +478,85 @@ class EnchantUI(QWidget):
             return
 
         # ---------------------------------------------------------
-        # ① 顯示標題：附魔名稱（升階附魔要顯示 from → to）
+        # 裝備名稱
         # ---------------------------------------------------------
-        title = ""
-        rate_text = ""
+        equip_name = self.list_items.currentItem().text()
+
+        # ---------------------------------------------------------
+        # 附魔類型
+        # ---------------------------------------------------------
+        type_map = {
+            "enchant": "機率附魔",
+            "perfect": "指定附魔",
+            "upgrade": "指定升階",
+            "perfect_upgrade": "指定升階",
+            "random_upgrade": "機率升階",
+        }
+        type_text = type_map.get(data["type"], "附魔")
+
+        # ---------------------------------------------------------
+        # 附魔名稱
+        # ---------------------------------------------------------
+        if data["type"] in ("upgrade", "perfect_upgrade", "random_upgrade"):
+            # 升階：from → to
+            src = self.resolve_item_name(data["from"])
+            dst = self.resolve_item_name(data["to"])
+            enchant_name = f"{src} → {dst}"
+        else:
+            enchant_name = self.resolve_item_name(item.text())
+
+        # ---------------------------------------------------------
+        # 機率（沒有 rate = 100%）
+        # ---------------------------------------------------------
         if "rate" in data:
             value = data["rate"] / 1000
-            text = f"{value:.3f}".rstrip('0').rstrip('.')
-            rate_text = f"（機率 {text}%）"
-        elif data["type"] in ("perfect", "upgrade", "perfect_upgrade"):
-            rate_text = "（機率 100%）"
-
-
-        # 各類型標題
-        if data["type"] == "enchant":
-            title = f"【機率附魔】{item.text()}{rate_text}"
-
-        elif data["type"] == "perfect":
-            title = f"【指定附魔】{item.text()}{rate_text}"
-
-        elif data["type"] in ("upgrade", "perfect_upgrade"):
-            src = self.resolve_item_name(data["from"])
-            dst = self.resolve_item_name(data["to"])
-            title = f"【指定升階】{src} → {dst}{rate_text}"
-
-        elif data["type"] == "random_upgrade":
-            src = self.resolve_item_name(data["from"])
-            dst = self.resolve_item_name(data["to"])
-            title = f"【機率升階】{src} → {dst}{rate_text}"
-
+            rate_text = f"{value:.3f}".rstrip("0").rstrip(".")
+            rate_str = f"{rate_text}%"
         else:
-            title = item.text()
+            rate_str = "100%"
 
         # ---------------------------------------------------------
-        # ② 收集材料
+        # 收集材料
         # ---------------------------------------------------------
         mlist = []
 
-        # 取得 slot info
-        equip_name = self.list_items.currentItem().text()
+        # 如果是機率附魔（enchant）還要加上 SetRequire 裡的材料
         tid = self.all_target_items[equip_name]
         info = self.parsed[tid]
         slot_order = list(reversed(info["slot_order"]))
         sid = slot_order[tab_index]
         slot_info = info["slots"].get(sid)
 
-        # SetRequire → 只有一般附魔需要
-        if data["type"] == "enchant":
-            if slot_info and "require" in slot_info:
-                for name, cnt in slot_info["require"]["materials"]:
-                    mlist.append((self.resolve_item_name(name), cnt))
+        if data["type"] == "enchant" and slot_info and "require" in slot_info:
+            for name, cnt in slot_info["require"]["materials"]:
+                mlist.append((self.resolve_item_name(name), cnt))
 
-        # 單項材料
-        mats = data.get("materials", [])
-        for name, cnt in mats:
+        # 加上附魔自身材料
+        for name, cnt in data.get("materials", []):
             mlist.append((self.resolve_item_name(name), cnt))
 
-        # 去掉空的 + 重複的
-        cleaned = []
-        seen = set()
-        for name, cnt in mlist:
-            if not name:
-                continue
-            key = (name, cnt)
-            if key in seen:
-                continue
-            seen.add(key)
-            cleaned.append(key)
-        mlist = cleaned
-
         # ---------------------------------------------------------
-        # ③ 組 tooltip 文字
+        # 組 Tooltip 文字（符合你要的格式）
         # ---------------------------------------------------------
-        msg = title + "\n"
+        msg = f"裝備名稱：{equip_name}\n"
+        msg += f"【{type_text}】 {enchant_name} （機率 {rate_str}）\n\n"
 
         if not mlist:
-            msg += "\n此附魔不需要額外材料。"
+            msg += "此裝備無需任何材料。"
         else:
-            msg += "\n"
+            msg += "附魔材料：\n"
             for name, cnt in mlist:
                 msg += f"● {name} × {cnt}\n"
 
         msg = msg.rstrip()
 
         # ---------------------------------------------------------
-        # ④ Tooltip 出現在滑鼠左上角（偏移避免被遮住）
+        # 顯示 Tooltip
         # ---------------------------------------------------------
         pos = QCursor.pos() + QPoint(10, -10)
         QToolTip.showText(pos, msg, table)
+
+
 
 
     def adjust_left_list_width(self):
