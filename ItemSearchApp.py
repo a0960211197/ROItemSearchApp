@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.7-251130"
+Version = "v0.1.8-251130"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QPlainTextEdit
 import enchant #載入附魔工具
 import skill_tree #載入技能樹
 import reform_viewer #載入改造工具
-
+from rrf_to_App import run_rrf_main#載入rrf轉換
 class InitWorker(QThread):
     log_signal = Signal(str)
     progress_signal = Signal(str)
@@ -7290,7 +7290,7 @@ class ItemSearchApp(QWidget):
         open_action.triggered.connect(self.open_project_file)
         file_menu.addAction(open_action)        
 
-        open_rrf_action = QAction("從RO重播檔(.rrf)開啟", self)
+        open_rrf_action = QAction("從RO重播檔(.rrf)匯入裝備", self)
         open_rrf_action.triggered.connect(self.open_rrf_and_import)
         file_menu.addAction(open_rrf_action)        
 
@@ -7606,7 +7606,8 @@ class ItemSearchApp(QWidget):
         import subprocess, os, json
 
         # 執行 rrf_to_App.py
-        subprocess.run(["python", "rrf_to_App.py"])
+        #subprocess.run(["python", "rrf_to_App.py"])
+        json_path = run_rrf_main()
 
         bridge_file = "tmp/rrf_output_path.txt"
 
@@ -7896,3 +7897,5 @@ if __name__ == "__main__":
     worker.start()
 
     sys.exit(app.exec())
+
+

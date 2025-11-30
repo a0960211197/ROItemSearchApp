@@ -52,6 +52,11 @@ Shadow_GROUP_NAME_MAP = {
 
 from data.job_dict import job_dict#job 職業資料
 
+import sys, os
+def resource_path(rel_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, rel_path)
+    return os.path.join(os.path.abspath("."), rel_path)
 
 
 # 載入EnumVAR.lua
@@ -494,7 +499,7 @@ def extract_session_stats(filepath):
 
 
 
-def extract_equip_chunk(filepath, chunk_name="EquippedItems", group_map=None):
+def extract_equip_chunk(filepath, json_data, get_itemname, chunk_name="EquippedItems", group_map=None):
 
     with open(filepath, 'r', encoding='cp950', errors='ignore') as f:
         content = f.read()
@@ -714,10 +719,8 @@ def extract_equip_chunk(filepath, chunk_name="EquippedItems", group_map=None):
 
     print("Done.\n")
 
-
-
-if __name__ == "__main__":
-    # 0. 載入 iteminfo
+def run_rrf_main():
+       # 0. 載入 iteminfo
     iteminfo_dict = parse_lub_file("data/iteminfo_new.lua")
     with open("data/EquipmentProperties.lua", "r", encoding="utf-8") as f:
         content = f.read()
@@ -806,8 +809,8 @@ if __name__ == "__main__":
     print("")
     
     # 4. 用 temp.txt 開始解析
-    extract_equip_chunk(txt_path, 'EquippedItems', GROUP_NAME_MAP)
-    extract_equip_chunk(txt_path, 'EquippedShadowItems', Shadow_GROUP_NAME_MAP)
+    extract_equip_chunk(txt_path, json_data, get_itemname,'EquippedItems', GROUP_NAME_MAP)
+    extract_equip_chunk(txt_path, json_data, get_itemname,'EquippedShadowItems', Shadow_GROUP_NAME_MAP)
 
 
     # 5. 解析完畢 → 刪除 temp.txt
@@ -832,3 +835,7 @@ if __name__ == "__main__":
     print(f"JSON 已輸出為 {json_output_path}")
     #input("按 Enter 結束...")
 
+    return json_output_path
+
+if __name__ == "__main__":
+    run_rrf_main()
