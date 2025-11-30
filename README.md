@@ -1,4 +1,5 @@
-<img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/z2911902/ROItemSearchApp/total">
+<img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/z2911902/ROItemSearchApp/total"> <img alt="GitHub Release" src="https://img.shields.io/github/v/release/z2911902/ROItemSearchApp">
+
 
 # ROItemSearchApp
 用於查詢裝備跟統整裝備能力
