@@ -529,9 +529,10 @@ def extract_equip_chunk(filepath, json_data, get_itemname, chunk_name="EquippedI
 
     pattern = (
         r"\[Chunk Items\] Unparsed opcode " + re.escape(chunk_name) +
-        r", Length=\d+\s+→ Raw hex:[^\{]*\{([^}]*)\}"
+        r", Length=\d+\s+→ Raw hex:\s*\[[^\]]+\]\s*\{([\s\S]*?)^\}"
     )
-    match = re.search(pattern, content, re.DOTALL)
+
+    match = re.search(pattern, content, re.MULTILINE)
     if not match:
         print(f"找不到指定chunk！({chunk_name})")
         return
