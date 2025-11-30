@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.8-251130"
+Version = "v0.1.9-251130"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -136,8 +136,32 @@ def register_function(name, desc, args):
         "args": args
     }
 
-from data.all_skill_entries import all_skill_entries# 載入技能效果資料
-from data.job_dict import job_dict#job 職業資料
+
+
+def load_python_dict(path, var_name):
+    """
+    從外部 .py 檔載入指定變數。
+    
+    path: 外部 .py 檔案路徑
+    var_name: 要讀取的 dict 變數名稱，例如 'all_skill_entries'
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"外部資料檔不存在: {path}")
+
+    spec = importlib.util.spec_from_file_location("external_module", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, var_name):
+        raise AttributeError(f"{path} 裡找不到變數: {var_name}")
+
+    return getattr(module, var_name)
+
+
+
+
+all_skill_entries = load_python_dict("data/all_skill_entries.py", "all_skill_entries")# 載入技能效果資料
+job_dict = load_python_dict("data/job_dict.py", "job_dict")#職業job_id
 
 
 

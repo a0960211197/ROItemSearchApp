@@ -211,3 +211,5 @@ __marimo__/
 /裝備
 /compare_base.txt
 *.roc
+/tmp/rrf_output_path.txt
+/data/config.json

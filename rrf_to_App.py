@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import filedialog
 import os
 import json
+import importlib.util
 # ======【設定區】======
 SHOW_OFFSET = False# 顯示 slot 在 group 內的 offset 位置
 SHOW_RAW = False# 顯示 slot 的原始 bytes（每8顆一行）
@@ -50,7 +51,29 @@ Shadow_GROUP_NAME_MAP = {
     10: '服飾頭中',
 }
 
-from data.job_dict import job_dict#job 職業資料
+
+def load_python_dict(path, var_name):
+    """
+    從外部 .py 檔載入指定變數。
+    
+    path: 外部 .py 檔案路徑
+    var_name: 要讀取的 dict 變數名稱，例如 'all_skill_entries'
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"外部資料檔不存在: {path}")
+
+    spec = importlib.util.spec_from_file_location("external_module", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, var_name):
+        raise AttributeError(f"{path} 裡找不到變數: {var_name}")
+
+    return getattr(module, var_name)
+
+
+job_dict = load_python_dict("data/job_dict.py", "job_dict")#職業job_id
+
 
 import sys, os
 def resource_path(rel_path):
