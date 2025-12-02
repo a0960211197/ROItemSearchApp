@@ -4749,7 +4749,21 @@ ItemDBNameTbl = {
   Trident_Furious = 630045,
   FuriousCirclet_DK = 400628,
   FuriousCirclet_SH = 400630,
-  Aci_P_Shield_LT_TW = 460133
+  Aci_P_Shield_LT_TW = 460133,
+  Life_Cycle_Boots1_EM = 470407,
+  Life_Cycle_Boots2_EM = 470408,
+  Life_Cycle_Boots1_AG = 470405,
+  Life_Cycle_Boots2_AG = 470406,
+  Life_Cycle_Boots1_HN = 470400,
+  Life_Cycle_Boots2_HN = 470401,
+  Life_Cycle_Boots1_SH = 470402,
+  Life_Cycle_Boots2_SH = 470403,
+  SaintBook_Furious = 540086,
+  SaintWand_Furious = 550141,
+  SunBook_Furious = 540087,
+  MoonBook_Furious = 540088,
+  FuriousCirclet_SKE = 400610,
+  FuriousCirclet_CD = 400609
 }
 
 function ItemDB_To_ItemID(in_ItemDB)

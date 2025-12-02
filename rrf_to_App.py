@@ -346,14 +346,23 @@ def is_valid_skill_name(s):
 
 
 
+import re
+
 def parse_skillinfo_list_from_text(content):
-    # 用 find 取最外層 {}
-    start = content.find('{')
-    end = content.rfind('}')
-    if start == -1 or end == -1 or end <= start:
+
+    # 專找 packet HEADER_ZC_SKILLINFO_LIST 的 { ... }
+    pattern = (
+        r"packet\s+HEADER_ZC_SKILLINFO_LIST[\s\S]*?\{"   # 找到 HEADER_ZC_SKILLINFO_LIST 並定位到它的 {
+        r"([\s\S]*?)"                                     # 抓裡面內容
+        r"^\}\n\s*\n"                                     # 必須以獨立的 } + 換行 + 空行結束
+    )
+
+    match = re.search(pattern, content, re.MULTILINE)
+    if not match:
         return []
 
-    block = content[start+1:end]
+    block = match.group(1)
+
     hex_list = re.findall(r'\b([0-9A-Fa-f]{2})\b', block)
     n = len(hex_list)
 
@@ -362,30 +371,25 @@ def parse_skillinfo_list_from_text(content):
 
     while i < n - 20:
 
-        # 前兩 byte 不為 00 → 初步可能是技能名
         if hex_list[i] != "00" and hex_list[i+1] != "00":
 
             name_start = i
 
-            # 抓技能名直到 00
             name_bytes = []
             j = i
             while j < n and hex_list[j] != "00":
                 name_bytes.append(hex_list[j])
                 j += 1
 
-            # 轉 ASCII
             try:
                 name = bytes.fromhex("".join(name_bytes)).decode("ascii", errors="ignore")
             except:
                 name = ""
 
-            # ★★★ 加上這個：不是合法技能名 → 跳過
             if not is_valid_skill_name(name):
                 i += 1
                 continue
 
-            # 取技能等級（前 6 bytes 的頭 2 bytes）
             lvl_pos = name_start - 6
             level = 0
             if lvl_pos >= 0:
@@ -400,6 +404,7 @@ def parse_skillinfo_list_from_text(content):
             i += 1
 
     return skills
+
 
 
 
