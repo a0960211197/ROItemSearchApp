@@ -213,3 +213,4 @@ __marimo__/
 *.roc
 /tmp/rrf_output_path.txt
 /data/config.json
+/tmp

@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.10-251201"
+Version = "v0.1.11-251206"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -882,7 +882,7 @@ class CSVEditor(QMainWindow):
                 "tooltip": "連段技能的打擊次數。(負值為總傷害/次數)"
             },
             "Special_Calculation": {
-                "label": "特殊計算",
+                "label": "特殊計算公式",
                 "tooltip": "特定條件下的技能公式，會覆蓋一般公式。"
             },
             "monster_race": {
@@ -904,7 +904,12 @@ class CSVEditor(QMainWindow):
             "bonus_step": {
                 "label": "遞增/減數字",
                 "tooltip": "每段遞增/減的變化量，例如 -100 或 +0.1。"
+            },
+            "Rangedamage": {
+                "label": "技能遠距傷害",
+                "tooltip": "技能套用遠距傷害計算。"
             }
+
         }
 
 
@@ -946,7 +951,9 @@ class CSVEditor(QMainWindow):
                     ("魚貝", 5), ("惡魔", 6), ("人形", 7), ("天使", 8), ("龍族", 9),
                 ]
                 edit_field = MultiComboField(race_options)
-
+            # ★★★ 新增：Rangedamage 用勾選框 ★★★
+            elif header.lower() == "rangedamage":
+                edit_field = QCheckBox()
             else:
                 edit_field = QLineEdit()
                 if header.lower() in ["id", "code"]:
@@ -1042,6 +1049,12 @@ class CSVEditor(QMainWindow):
                     widget.setCurrentIndex(idx if idx >= 0 else 0)
                     continue
 
+                if isinstance(widget, QCheckBox) and key == "rangedamage":
+                    widget.setChecked(str(value).strip() in ("1", "true", "True"))
+                    continue
+
+
+
                 # 其它欄位照舊
                 if isinstance(widget, QComboBox):
                     idx = widget.findText(str(value))
@@ -1096,6 +1109,9 @@ class CSVEditor(QMainWindow):
                     new_value = widget.currentData()  # "magic"/"physical"
                 elif isinstance(widget, QComboBox):
                     new_value = widget.currentText()
+                elif isinstance(widget, QCheckBox) and key == "rangedamage":
+                    new_value = "1" if widget.isChecked() else "0"
+
                 else:
                     new_value = widget.text()
 
@@ -3303,9 +3319,12 @@ class ItemSearchApp(QWidget):
             bonus_add = str(bonus_add_raw).strip()
 
         bonus_step = float(skill_row["bonus_step"]) if pd.notna(skill_row.get("bonus_step")) else 0
-        decay_hits = int(skill_row["decay_hits"]) if pd.notna(skill_row.get("decay_hits")) else 0  # ✅ 補這段
+        decay_hits = int(skill_row["decay_hits"]) if pd.notna(skill_row.get("decay_hits")) else 0 
         combo_element = int(skill_row["combo_elementg"]) if pd.notna(skill_row.get("combo_elementg")) else 0
         attack_type = str(skill_row.get("attack_type", "")).lower() if pd.notna(skill_row.get("attack_type")) else "physical"
+        #技能遠傷判斷
+        skill_Rangedamage = int(skill_row["Rangedamage"]) if pd.notna(skill_row.get("Rangedamage")) else 0 
+        #print(f"技能遠傷判斷: {skill_Rangedamage}")
         #技能爆傷判斷
         Critical_hit = float(skill_row["Critical_hit"]) if pd.notna(skill_row.get("Critical_hit")) else 1
 
@@ -3466,6 +3485,12 @@ class ItemSearchApp(QWidget):
                         #(潛擊)+(孢子)+(撼動)+(聖油)
                         special_away_BUFF = max(1, sneak_attack_buff + SPORE_attack_buff + RUSH_attack_buff + OLEUM_attack_buff)
 
+                        #技能遠傷進傷
+                        if skill_Rangedamage == 1:
+                            MR_AttackDamage = RangeAttackDamage
+                        else:
+                            MR_AttackDamage = MeleeAttackDamage
+                        
                         #print(f"special_away_BUFF:{special_away_BUFF}")
                         #print(f"special_melee_BUFF:{special_melee_BUFF}")
                         if weapon_class in (11,13,14,17,18,19,20,21):#DEX系
@@ -3476,8 +3501,8 @@ class ItemSearchApp(QWidget):
                                 (patk_total,1),
                                 #爆傷
                                 (CRI_Critical_hit,1),
-                                #遠傷%
-                                (RangeAttackDamage,1),
+                                #遠傷% 技能判斷
+                                (MR_AttackDamage,1),
                                 #技能倍率
                                 (skill_result,0),
                                 #敵人MRES減傷
@@ -3508,8 +3533,8 @@ class ItemSearchApp(QWidget):
                                 (WeaponMasteryATK,"+"),
                                 #爆傷
                                 (CRI_Critical_hit,1),
-                                #近傷%
-                                (MeleeAttackDamage,1),
+                                #近傷% 技能判斷
+                                (MR_AttackDamage,1),
                                 #技能倍率
                                 (skill_result,0),
                                 #高階拳刃修煉
@@ -3769,7 +3794,7 @@ class ItemSearchApp(QWidget):
             result.append(f"{pad_label('P.ATK:')}{round(patk_total)}")
             result.append(f"{pad_label('物理屬性敵人:')}{round(get_effect_multiplier('D_element', target_element) + get_effect_multiplier('D_element', 10))}%")
             result.append(f"{pad_label('爆傷:')}{round(Damage_CRI)}%")
-            if weapon_class in (11,13,14,17,18,19,20,21):#DEX系
+            if skill_Rangedamage == 1:#DEX系
                 result.append(f"{pad_label('遠傷:')}{round(RangeAttackDamage)}%")
             else:#STR系
                 result.append(f"{pad_label('近傷:')}{round(MeleeAttackDamage)}%")
