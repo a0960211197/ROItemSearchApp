@@ -10,6 +10,24 @@
 	temp = GSklv(134)
 	WeaponMasteryATK(temp * 3)
 }
+
+[226] = {
+	temp = GSklv(226)
+	temp_wp = GetWeaponClass(4)
+	if temp_wp == 2 or temp_wp == 6 then
+		WeaponMasteryATK(temp * 3)
+}
+
+[2474] = {
+	temp = GSklv(2474)
+	temp_wp = GetWeaponClass(4)
+	if temp_wp == 2 then
+		WeaponMasteryATK(temp * 10)
+		AddExtParam(1, 49, temp)
+}
+
+
+
 [5077] = {
 	temp = GSklv(5077)
 	AddExtParam(1, 200, temp * 20)

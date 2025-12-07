@@ -1314,7 +1314,7 @@
 6003,MT_TRIPLE_LASER,三連雷射,physical,1,5,(650+1150*Sklv+total_POW*12)*BaseLv/100,0,3,1,,,,,,,,,
 6004,MT_MIGHTY_SMASH,強力粉碎,physical,,10,(80+240*BaseLv+total_POW*7)*BaseLv/100,0,5,,,,,(100+240*BaseLv+total_POW*10)*BaseLv/100,,5295,,,
 6005,BO_EXPLOSIVE_POWDER,爆炸炸藥,physical,,5,(500+650*Sklv+total_POW*7)*BaseLv/100,0,3,,,,,(500+750*Sklv+total_POW*10)*BaseLv/100,,5347,,,
-6006,BO_MAYHEMIC_THORNS,混亂的荊棘,physical,1,10,(200+300*Sklv+total_POW*7)*BaseLv/100,0,3,1,,,,(350+300*Sklv+total_POW*10)*BaseLv/100,,5347,,,
+6006,BO_MAYHEMIC_THORNS,混亂的荊棘,physical,1,10,(200+300*Sklv+total_POW*7)*BaseLv/100,0,3,0.5,,,,(350+300*Sklv+total_POW*10)*BaseLv/100,,5347,,,
 8443,EM_EL_FLAMETECHNIC,火焰神技,,,,,0,0,,,,,,,,,,
 8444,EM_EL_FLAMEARMOR,火焰鎧甲,,,,,0,0,,,,,,,,,,
 8445,EM_EL_FLAMEROCK,火焰隕石,,,,,0,0,,,,,,,,,,

@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.11-251206"
+Version = "v0.1.12-251207"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -115,7 +115,7 @@ from sympy import sympify, symbols, Symbol
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLineEdit, QLabel,QGroupBox, QToolButton,QSizePolicy,
     QComboBox, QTextEdit, QMessageBox, QHBoxLayout, QScrollArea, QCheckBox, QMenuBar, QFileDialog,
-    QPushButton, QTabWidget, QFormLayout, QSpinBox  ,QDoubleSpinBox  ,QFrame , QGridLayout,QDialog, QListWidget,
+    QPushButton, QTabWidget, QFormLayout, QSpinBox  ,QDoubleSpinBox  ,QFrame , QGridLayout,QDialog, QListWidget, QButtonGroup,
 )
 
 from datetime import datetime
@@ -1346,7 +1346,7 @@ def parse_lua_effects_with_variables(
         expr = re.sub(r"get\((\d+)\)", lambda m: str(get_values.get(int(m.group(1)), 0)), expr)
         expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
         expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
-        expr = re.sub(r"GetEquipArmorLv\((\d+)\)",lambda m: str(global_armor_level_map.get(int(m.group(1)), 0)),expr) # 防具等級GetEquipArmorLv(數字部位)        
+        expr = re.sub(r"GetEquipArmorLv\((\d+)\)",lambda m: str(global_armor_level_map.get(int(m.group(1)), 0)),expr) # 防具等級GetEquipArmorLv(數字部位)
         # 將變數名稱替換成實際數值
         for v in sorted(variables.keys(), key=lambda x: -len(x)):
             expr = re.sub(rf'\b{re.escape(v)}\b', str(variables[v]), expr)
@@ -1505,6 +1505,7 @@ def parse_lua_effects_with_variables(
             expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
             expr = re.sub(r"GetItemIDLocation\((\d+)\)", lambda m: str(slot_item_id_map.get(int(m.group(1)), 0)), expr)
+            #expr = re.sub(r"GetWeaponClass\((\d+)\)", lambda m: str(global_weapon_type_map.get(int(m.group(1)), 0)), expr)
             for v in sorted(variables.keys(), key=lambda x: -len(x)):
                 expr = re.sub(rf'\b{re.escape(v)}\b', str(variables[v]), expr)
 
@@ -1542,6 +1543,7 @@ def parse_lua_effects_with_variables(
             expr = re.sub(r"GetRefineLevel\((\d+)\)", lambda m: str(refine_inputs.get(int(m.group(1)), 0)), expr)
             expr = re.sub(r"GetEquipGradeLevel\((\d+)\)", lambda m: str(grade), expr)
             expr = re.sub(r"GetItemIDLocation\((\d+)\)", lambda m: str(slot_item_id_map.get(int(m.group(1)), 0)), expr)
+            #expr = re.sub(r"GetWeaponClass\((\d+)\)", lambda m: str(global_weapon_type_map.get(int(m.group(1)), 0)), expr)
             for v in sorted(variables.keys(), key=lambda x: -len(x)):
                 expr = re.sub(rf'\b{re.escape(v)}\b', str(variables[v]), expr)
             expr = expr.replace("~=", "!=")
@@ -1649,6 +1651,19 @@ def parse_lua_effects_with_variables(
                 results.append(f"⚠️ 無法計算 `{var}` = GetEquipArmorLv({slot})")
             continue
 
+        # 新增對 temp = GetWeaponClass(...) 的處理邏輯
+        weapon_type_name = re.match(r"(\w+)\s*=\s*GetWeaponClass\((\d+)\)", line)
+        if weapon_type_name:
+            var, slot = weapon_type_name.groups()
+            try:
+                slot_i = int(slot)
+                # 從全域表取得該武器的位置類別，沒有設定則預設 0
+                value = global_weapon_type_map.get(slot_i, 0)
+                variables[var] = value
+                results.append(f"📌 `{var}` = {value}（GetWeaponClass({slot})）")
+            except:
+                results.append(f"⚠️ 無法計算 `{var}` = GetWeaponClass({slot})")
+            continue
 
         # math.floor(...) 指定變數
         var_math = re.match(r"(\w+)\s*=\s*math\.floor\((.+)\)", line)
@@ -2146,6 +2161,18 @@ def parse_lua_effects_with_variables(
             results.append(f"爆擊傷害 +{value_expr}%")
             continue
 
+        # SubDamage_CRI(1, value)
+        
+        # register_function("SubDamage_CRI", "爆擊傷害", [
+        #     {"name": "目標", "map": "unit_map"},
+        #     {"name": "數值%", "type": "value"}
+        # ])
+        cri_dmg = re.match(r"SubDamage_CRI\(\s*1\s*,\s*(.+)\)", line)
+        if cri_dmg and condition_met:
+            value_expr = cri_dmg.group(1)
+            value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
+            results.append(f"爆擊傷害 -{value_expr}%")
+            continue
 
         # AddDamage_Size(1, size_id, value)
         
@@ -2655,6 +2682,7 @@ class ItemSearchApp(QWidget):
 
         QTimer.singleShot(0, do_restore)
         self.input_fields["JOB"].setEnabled(False)
+        self.skill_btn.setEnabled(False)
         self.skill_tree_window.show()
 
 
@@ -2665,6 +2693,9 @@ class ItemSearchApp(QWidget):
         self.refine_inputs_ui["技能"]["note"].setPlainText(text)
         #self.refine_inputs_ui["技能"]["note_ui"].setPlainText(text)
         self.input_fields["JOB"].setEnabled(True)
+        self.skill_btn.setEnabled(True)
+        self.trigger_total_effect_update()
+
 
 
     def restore_skill_tree_levels(self):
@@ -4352,6 +4383,19 @@ class ItemSearchApp(QWidget):
         key = key.replace("變動詠唱時間", "變動詠唱時間")
 
         return key
+
+    def handle_exclusive_toggle(self, checkbox, group, checked):
+        """處理 mutually exclusive 但允許取消的行為"""
+        if checked:
+            # 若這個 checkbox 被勾選，取消同組其他的
+            for cb in self.exclusive_groups[group]:
+                if cb is not checkbox:
+                    cb.blockSignals(True)
+                    cb.setChecked(False)
+                    cb.blockSignals(False)
+        else:
+            # 若使用者取消勾選 → 不做任何事（允許取消）
+            pass
 
 
     def try_extract_effect(self, line: str):
@@ -6085,10 +6129,10 @@ class ItemSearchApp(QWidget):
                 self.input_fields[label] = combo
                 row_layout.addWidget(combo)
                 # ★ 新增：技能樹按鈕
-                skill_btn = QPushButton("技能表")
-                skill_btn.setFixedWidth(60)  # 控制按鈕大小
-                skill_btn.clicked.connect(self.open_skill_tree)  # 呼叫你現有的技能樹視窗
-                row_layout.addWidget(skill_btn)
+                self.skill_btn = QPushButton("技能表")
+                self.skill_btn.setFixedWidth(60)  # 控制按鈕大小
+                self.skill_btn.clicked.connect(self.open_skill_tree)  # 呼叫你現有的技能樹視窗
+                row_layout.addWidget(self.skill_btn)
             else:
                 field = QLineEdit()
                 field.setPlaceholderText(f"{label} (get({gid}))")
@@ -6523,12 +6567,30 @@ class ItemSearchApp(QWidget):
         self.skill_checkbox_layout.setAlignment(Qt.AlignTop)
 
         self.skill_checkboxes = {}
+        self.exclusive_groups = {}   # { group_name: [checkbox1, checkbox2] }
+
         for name, data in all_skill_entries.items():
-            checkbox = QCheckBox(f"{data['type']} {name}")            
-            checkbox.stateChanged.connect(self.clear_global_state)
-            checkbox.stateChanged.connect(self.trigger_total_effect_update)
+            checkbox = QCheckBox(f"{data['type']} {name}")
             self.skill_checkboxes[name] = checkbox
             self.skill_checkbox_layout.addWidget(checkbox)
+
+            checkbox.stateChanged.connect(self.clear_global_state)
+            checkbox.stateChanged.connect(self.trigger_total_effect_update)
+
+            # 判斷此技能是否有 exclusive 群組
+            if "exclusive" in data:
+                group = data["exclusive"]
+
+                if group not in self.exclusive_groups:
+                    self.exclusive_groups[group] = []
+
+                self.exclusive_groups[group].append(checkbox)
+
+                # 連接 "可取消" 的互斥控制函數
+                checkbox.toggled.connect(lambda checked, c=checkbox, g=group:
+                                         self.handle_exclusive_toggle(c, g, checked))
+
+
             
 
         scroll = QScrollArea()
