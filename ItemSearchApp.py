@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.13-251207"
+Version = "v0.1.14-251207"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -2284,7 +2284,7 @@ def parse_lua_effects_with_variables(
             race_id, value_expr = ignore_res_race.groups()
             race_name = race_map.get(int(race_id), f"種族{race_id}")
             value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
-            results.append(f"無視 {race_name} 的物理抗性 {value_expr}%")
+            results.append(f"無視 {race_name} 型怪的物理抗性 {value_expr}%")
             continue
             
         # 階級物理傷害加成：ClassAddDamage(1, class_id, value)

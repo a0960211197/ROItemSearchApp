@@ -38,7 +38,7 @@ all_skill_entries = {#範例[    "": {"type": "技能/料理","code":["",""]},
     "全心奉獻": {"type": "技能","code":["AddExtParam(1, 235, 10)","AddExtParam(1, 236, 10)","AddExtParam(1, 237, 10)"]},
     "祝福讚歌": {"type": "技能","code":["AddExtParam(1, 234, 10)","AddExtParam(1, 238, 10)","AddExtParam(1, 239, 10)"]},
     "神聖防護/光耀天命": {"type": "技能","code":["AddIgnore_MRES_RacePercent(9999, 25)","AddIgnore_RES_RacePercent(9999, 25)"]},
-    "爆裂聖光": {"type": "技能","code":["AddDamage_CRI(1, 10)"]},
+    "爆裂聖光": {"type": "技能","code":["AddExtParam(1, 253, 10)"]},
     "贖罪": {"type": "技能","code":["SetIgnoreDefRace_Percent(9999, 25)","SetIgnoreMdefRace(9999, 25)"]},
     #704
     "五行符": {"type": "技能","code":["AddMDamage_Property(1, 0, 20)","AddMDamage_Property(1, 1, 20)","AddMDamage_Property(1,2, 20)","AddMDamage_Property(1, 3, 20)","AddMDamage_Property(1, 4, 20)","AddDamage_Property(1, 0, 20)","AddDamage_Property(1, 1, 20)","AddDamage_Property(1,2, 20)","AddDamage_Property(1, 3, 20)","AddDamage_Property(1, 4, 20)"]},
