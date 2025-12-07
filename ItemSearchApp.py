@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.12-251207"
+Version = "v0.1.13-251207"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -447,6 +447,13 @@ equipid_mapping = {#主程式equip to ROCalculator 轉換
     "equip_CON": "CON",
     "equip_CRT": "CRT",
     "Use_Skills": "SkillDamagePercent",
+    "HP":"HP",
+    "HPPercent":"HPPercent",
+    "SP":"SP",
+    "SPPercent":"SPPercent",
+    "HPRegenPercent":"HPRegenPercent",
+    "SPRegenPercent":"SPRegenPercent",
+
     #魔法
     "SMATK": "SMATK",
     "MATK_armor": "Matk",
@@ -2812,8 +2819,19 @@ class ItemSearchApp(QWidget):
             globals()[f"equip_{stat}"] = equip
             globals()[f"total_{stat}"] = total
 
+
+        
+
         #======================取所有增傷資料到變數區=====================
         effect_dict = getattr(self, "effect_dict_raw", {})
+        globals()["HP"] = sum(val for val, _ in effect_dict.get(("MHP", ""), []))
+        globals()["HPPercent"] = sum(val for val, _ in effect_dict.get(("MHP%", "%"), []))
+        globals()["SP"] = sum(val for val, _ in effect_dict.get(("MSP", ""), []))
+        globals()["SPPercent"] = sum(val for val, _ in effect_dict.get(("MSP%", "%"), []))
+        globals()["HPRegenPercent"] = sum(val for val, _ in effect_dict.get(("HP自然恢復%", "%"), []))
+        globals()["SPRegenPercent"] = sum(val for val, _ in effect_dict.get(("SP自然恢復%", "%"), []))
+
+        #print(f"hp:{HP} hp%:{HPPercent}sp:{SP} sp%:{SPPercent} h恢復{HPRegenPercent}s恢復 {SPRegenPercent}")
         #呼叫處理物理,魔法增傷,無視防禦 例:(對"小型"敵人的魔法傷害 +5%)
         self.apply_all_damage_effects(effect_dict)
         #主手武器類型(數字)
