@@ -71,8 +71,71 @@ def load_python_dict(path, var_name):
 
     return getattr(module, var_name)
 
+class DataRegistry:
+    """
+    用於統一管理所有外部 py 資料來源。
+    key = 資料名稱（如：skill, job）
+    value = {
+        "path": 本地路徑,
+        "var_name": py 裡的變數名稱,
+        "default": 預設 fallback dict,
+        "on_reload": 重新載入後要執行的 callback（例如 UI 更新）
+    }
+    """
+    sources = {}
 
-job_dict = load_python_dict("data/job_dict.py", "job_dict")#職業job_id
+    loaded_data = {}   # 儲存已載入的資料，如：loaded_data["skill"] = {...}
+    window = None   # 🔥 讓 UI 建好後再塞進來
+    @classmethod
+    def register(cls, key, path, var_name, default, on_reload=None):
+        cls.sources[key] = {
+            "path": path,
+            "var_name": var_name,
+            "default": default,
+            "on_reload": on_reload,
+        }
+
+    @classmethod
+    def load(cls, key):
+        info = cls.sources[key]
+        path = info["path"]
+        var_name = info["var_name"]
+
+        try:
+            data = load_python_dict(path, var_name)
+            cls.loaded_data[key] = data
+            print(f"[rrf to app]✓ 載入 {key} 成功")
+        except Exception as e:
+            print(f"[rrf to app]⚠️ 載入 {key} 失敗，使用預設值：{e}")
+            cls.loaded_data[key] = info["default"]
+
+        return cls.loaded_data[key]
+
+    @classmethod
+    def reload_all(cls):
+        print("[rrf to app]=== 重新載入所有資料來源 ===")
+
+        for key, info in cls.sources.items():
+            cls.load(key)
+
+            cb = info["on_reload"]
+            if cb and cls.window:
+                cb(cls.window)   # 把 window 實體傳進 callback
+
+
+
+# 註冊 job_dict
+DataRegistry.register(
+    key="jobs",
+    path="data/job_dict.py",
+    var_name="job_dict",
+    default={
+    0: {"id": "","id_jobneme": "","id_jobneme_OL": "","selectskill": "", "name": "", "TJobMaxPoint": [0,0,0,0,0,0,0,0,0,0,0,0],"point":"0"}},    # 你也可以做一個小預設值
+    on_reload=lambda win: win.update_combobox()  # 若職業列表要更新
+)
+DataRegistry.reload_all()
+job_dict = jobs = DataRegistry.loaded_data["jobs"]
+#job_dict = load_python_dict("data/job_dict.py", "job_dict")#職業job_id
 
 
 import sys, os
@@ -768,7 +831,8 @@ def run_rrf_main():
     rrf_path, txt_path = run_replay_and_dump()
     if not txt_path:
         #input("按 Enter 結束...")
-        exit()
+        #exit()
+        return None
 
     # 2. 解析技能資訊 
     with open(txt_path, "r", encoding="cp950", errors="ignore") as f:

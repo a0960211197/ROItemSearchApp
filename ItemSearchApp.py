@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.14-251207"
+Version = "v0.1.15-251208"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -137,7 +137,6 @@ def register_function(name, desc, args):
     }
 
 
-
 def load_python_dict(path, var_name):
     """
     從外部 .py 檔載入指定變數。
@@ -158,10 +157,97 @@ def load_python_dict(path, var_name):
     return getattr(module, var_name)
 
 
+class DataRegistry:
+    """
+    用於統一管理所有外部 py 資料來源。
+    key = 資料名稱（如：skill, job）
+    value = {
+        "path": 本地路徑,
+        "var_name": py 裡的變數名稱,
+        "default": 預設 fallback dict,
+        "on_reload": 重新載入後要執行的 callback（例如 UI 更新）
+    }
+    """
+    sources = {}
+
+    loaded_data = {}   # 儲存已載入的資料，如：loaded_data["skill"] = {...}
+    window = None   # 🔥 讓 UI 建好後再塞進來
+    @classmethod
+    def register(cls, key, path, var_name, default, on_reload=None):
+        cls.sources[key] = {
+            "path": path,
+            "var_name": var_name,
+            "default": default,
+            "on_reload": on_reload,
+        }
+
+    @classmethod
+    def load(cls, key):
+        info = cls.sources[key]
+        path = info["path"]
+        var_name = info["var_name"]
+
+        try:
+            data = load_python_dict(path, var_name)
+            cls.loaded_data[key] = data
+            print(f"✓ 載入 {key} 成功")
+        except Exception as e:
+            print(f"⚠️ 載入 {key} 失敗，使用預設值：{e}")
+            cls.loaded_data[key] = info["default"]
+
+        return cls.loaded_data[key]
+
+    @classmethod
+    def reload_all(cls):
+        print("=== 重新載入所有資料來源 ===")
+
+        for key, info in cls.sources.items():
+            cls.load(key)
+
+            cb = info["on_reload"]
+            if cb and cls.window:
+                cb(cls.window)   # 把 window 實體傳進 callback
 
 
-all_skill_entries = load_python_dict("data/all_skill_entries.py", "all_skill_entries")# 載入技能效果資料
-job_dict = load_python_dict("data/job_dict.py", "job_dict")#職業job_id
+
+ # 註冊 all_skill_entries
+DataRegistry.register(
+    key="skills",
+    path="data/all_skill_entries.py",
+    var_name="all_skill_entries",
+    default={},
+    on_reload=lambda win: win.rebuild_skill_tab()  # UI 更新
+)
+
+# 註冊 job_dict
+DataRegistry.register(
+    key="jobs",
+    path="data/job_dict.py",
+    var_name="job_dict",
+    default={
+    0: {"id": "","id_jobneme": "","id_jobneme_OL": "","selectskill": "", "name": "沒有資料", "TJobMaxPoint": [0,0,0,0,0,0,0,0,0,0,0,0],"point":"0"}},    # 你也可以做一個小預設值
+    on_reload=lambda win: win.reload_job_list()  # 若職業列表要更新
+)
+
+
+# 外部py載入清單
+DataRegistry.reload_all()#先讀取所有外部py並設定預設
+all_skill_entries = DataRegistry.loaded_data["skills"]# 載入技能效果資料
+job_dict  = DataRegistry.loaded_data["jobs"]#職業job_id
+
+
+
+
+
+
+
+
+
+
+
+
+#all_skill_entries = load_python_dict("data/all_skill_entries.py", "all_skill_entries")# 載入技能效果資料
+#job_dict = load_python_dict("data/job_dict.py", "job_dict")#職業job_id
 
 
 
@@ -2652,6 +2738,7 @@ class ItemSearchApp(QWidget):
 
 
     def open_skill_tree(self):
+
         skill_tree.job_dict = job_dict
         skill_tree.load_skill_tree("data/skill_tree.yml")
         skill_tree.load_skill_treeview("data/skilltreeview.lub")
@@ -4682,6 +4769,8 @@ class ItemSearchApp(QWidget):
             ("skilltreeview.lub", False),
             ("skillneme.csv", False),
             ("skillbuff.lua", False),
+            ("all_skill_entries.py", False),
+            ("job_dict.py", False),
         ]
 
         dialog = FileSelectionDialog(files_to_delete, data_folder, self)
@@ -5651,6 +5740,9 @@ class ItemSearchApp(QWidget):
         ONLINE_skilltreeview_URL = "https://z2911902.github.io/ROItemSearchApp/data/skilltreeview.lub"
         ONLINE_skillneme_URL = "https://z2911902.github.io/ROItemSearchApp/data/skillneme.csv"
         ONLINE_skillbuff_URL = "https://z2911902.github.io/ROItemSearchApp/data/skillbuff.lua"
+        ONLINE_skill_entries_URL = "https://z2911902.github.io/ROItemSearchApp/data/all_skill_entries.py"
+        ONLINE_job_dict_URL = "https://z2911902.github.io/ROItemSearchApp/data/job_dict.py"
+        
 
         # === 路徑設定 ===
         if getattr(sys, 'frozen', False):
@@ -5669,6 +5761,9 @@ class ItemSearchApp(QWidget):
         skilltreeview_path  = os.path.join(data_dir, "skilltreeview.lub")
         skillneme_path  = os.path.join(data_dir, "skillneme.csv")        
         skillbuff_path  = os.path.join(data_dir, "skillbuff.lua")
+        skill_entries_path  = os.path.join(data_dir, "all_skill_entries.py")
+        job_dict_path  = os.path.join(data_dir, "job_dict.py")
+        
 
         # === 內嵌小工具 ===
         def _fmt_bytes(n: int) -> str:
@@ -5957,8 +6052,9 @@ class ItemSearchApp(QWidget):
         miss_skilltreeview  = not os.path.exists(skilltreeview_path)
         miss_skillneme = not os.path.exists(skillneme_path)
         miss_skillbuff = not os.path.exists(skillbuff_path)
-
-
+        miss_skill_entries = not os.path.exists(skill_entries_path)
+        miss_job_dict = not os.path.exists(job_dict_path)
+        
 
 
         # === 模式分流 ===
@@ -5980,8 +6076,17 @@ class ItemSearchApp(QWidget):
             if miss_skilltreeview: targets.append((ONLINE_skilltreeview_URL,    skilltreeview_path))
             if miss_skillneme: targets.append((ONLINE_skillneme_URL,    skillneme_path))
             if miss_skillbuff: targets.append((ONLINE_skillbuff_URL,    skillbuff_path))
+            if miss_skill_entries: targets.append((ONLINE_skill_entries_URL,    skill_entries_path))
+            if miss_job_dict: targets.append((ONLINE_job_dict_URL,    job_dict_path))
+            
             if targets:
                 _try_online_for(targets)
+                # ⭐⭐⭐ 下載完成 → 強制重新啟動 ⭐⭐⭐
+                print("🔄 線上資料已更新，重新啟動程式以避免舊快取造成錯誤...")
+
+                import sys, os
+                python = sys.executable
+                os.execv(python, [python] + sys.argv)
             # 下載後再檢查一次，若仍缺則停止（不回退本地）
             required_files = [
                 iteminfo_path,
@@ -5992,12 +6097,15 @@ class ItemSearchApp(QWidget):
                 skilltreeview_path,
                 skillneme_path,
                 skillbuff_path,
+                skill_entries_path,
+                job_dict_path,
             ]
             if not all(os.path.exists(path) for path in required_files):
                 print("❌ online_only 模式：仍有檔案缺失，停止")
                 return
 
         # === 載入（無論來源） ===
+
         print("📖 載入 物品列表 ...")
         self.parsed_items = parse_lub_file(iteminfo_path)
         print("📖 載入 載入物品效果...")
@@ -6006,9 +6114,76 @@ class ItemSearchApp(QWidget):
         self.equipment_data = self.parse_equipment_blocks(content)
         print("📖 載入 技能清單...")
         load_skill_map("data/skillneme.csv") #讀取SKILL列表
+
         self.parsed_items = resolve_name_conflicts(self.parsed_items ,self.equipment_data)#重複物品名稱加上id
         print("🎉 載入完成")
         return self.parsed_items
+
+    def rebuild_skill_tab(self):
+        """
+        依照最新 all_skill_entries 重新生成技能/料理勾選區域
+        （完全保留你原本 UI 的格式與邏輯）
+        """
+
+        # 1️⃣ 清除舊的 checkbox
+        while self.skill_checkbox_layout.count():
+            item = self.skill_checkbox_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+
+        self.skill_checkboxes.clear()
+        self.exclusive_groups.clear()
+
+        # 2️⃣ 使用最新資料重建 UI
+        from ItemSearchApp import DataRegistry
+        all_skill_entries = DataRegistry.loaded_data["skills"]
+
+        for name, data in all_skill_entries.items():
+
+            checkbox = QCheckBox(f"{data['type']} {name}")
+            self.skill_checkboxes[name] = checkbox
+            self.skill_checkbox_layout.addWidget(checkbox)
+
+            # 保留原本事件
+            checkbox.stateChanged.connect(self.clear_global_state)
+            checkbox.stateChanged.connect(self.trigger_total_effect_update)
+
+            # exclusive 群組
+            if "exclusive" in data:
+                group = data["exclusive"]
+
+                if group not in self.exclusive_groups:
+                    self.exclusive_groups[group] = []
+
+                self.exclusive_groups[group].append(checkbox)
+
+                checkbox.toggled.connect(
+                    lambda checked, c=checkbox, g=group:
+                    self.handle_exclusive_toggle(c, g, checked)
+                )
+
+        print("✓ Skill/料理區塊已根據最新資料重新生成")
+
+    def reload_job_list(self):
+        """
+        依照 DataRegistry.loaded_data['jobs'] 重新填入 JOB 下拉選單
+        """
+        if "JOB" not in self.input_fields:
+            return  # 尚未初始化 UI
+
+        combo: QComboBox = self.input_fields["JOB"]
+        combo.blockSignals(True)  # 避免觸發 change 事件
+
+        combo.clear()
+
+        jobs = DataRegistry.loaded_data.get("jobs", {})
+
+        for job_id, job_info in sorted(jobs.items()):
+            combo.addItem(job_info["name"], job_id)
+
+        combo.blockSignals(False)
+        print("✓ JOB 下拉選單已重新載入")
 
 
 
@@ -7737,7 +7912,8 @@ class ItemSearchApp(QWidget):
         # 執行 rrf_to_App.py
         #subprocess.run(["python", "rrf_to_App.py"])
         json_path = run_rrf_main()
-
+        if not json_path:
+            return
         bridge_file = "tmp/rrf_output_path.txt"
 
         if not os.path.exists(bridge_file):
@@ -8006,13 +8182,16 @@ if __name__ == "__main__":
 
     window = ItemSearchApp()
     worker = InitWorker(app_instance=window)
+    DataRegistry.window = window
 
     worker.log_signal.connect(loading.append_text)
     worker.progress_signal.connect(loading.update_progress)
 
     def on_done(data):
+        
+        print("📖 載入 外部MAP ...")
+        DataRegistry.reload_all()
         loading.append_text("初始化完成，正在更新介面...")
-
         # ✅ 主執行緒更新 UI
         window.parsed_items = data or {}
         window.update_combobox()

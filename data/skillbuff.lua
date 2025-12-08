@@ -16,7 +16,32 @@
 	temp_wp = GetWeaponClass(4)
 	if temp_wp == 2 or temp_wp == 6 then
 		WeaponMasteryATK(temp * 3)
+	end
 }
+[274] = {
+	temp = GSklv(274)
+	temp_wp = GetWeaponClass(4)
+	if temp_wp == 15 then
+		WeaponMasteryATK(temp * 10)
+	end
+}
+
+[284] = {
+	temp = GSklv(284)
+	AddMdamage_Race(9,temp * 2)
+	RaceAddDamage(9, temp * 4)
+	if temp == 1 or temp == 2 then
+		AddExtParam(1, 106, 1)
+	end
+	if temp == 3 or temp == 4 then
+		AddExtParam(1, 106, 2)
+	end
+	if temp == 5 then
+		AddExtParam(1, 106, 3)
+	end
+
+}
+
 
 [2474] = {
 	temp = GSklv(2474)
@@ -24,6 +49,7 @@
 	if temp_wp == 2 then
 		WeaponMasteryATK(temp * 10)
 		AddExtParam(1, 49, temp)
+	end
 }
 
 
@@ -34,6 +60,19 @@
 	AddExtParam(1, 109, temp * 400)
 	AddExtParam(1, 110, temp * 40)
 }
+
+[5365] = {
+	temp = GSklv(5365)
+	temp_wp = GetWeaponClass(4)
+	if temp_wp == 15 then
+		AddSkillMDamage(1, temp * 1.6)
+		AddSkillMDamage(2, temp * 1.6)
+		AddSkillMDamage(3, temp * 1.6)
+		AddSkillMDamage(4, temp * 1.6)
+		AddSkillMDamage(5, temp * 1.6)
+	end
+}
+
 [5450] = {
 	temp = GSklv(5450)
 	AddExtParam(1, 243, temp)
