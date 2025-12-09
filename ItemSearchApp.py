@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.15-251208"
+Version = "v0.1.16-251209"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -2303,7 +2303,7 @@ def parse_lua_effects_with_variables(
         ignore_race = re.match(r"SetIgnoreDEFRace\((\d+)\)", line)
         if ignore_race and condition_met:
             race_name = race_map.get(int(ignore_race.group(1)), f"種族{ignore_race.group(1)}")
-            results.append(f"無視 {race_name} 型怪的物理防禦")
+            results.append(f"無視 {race_name} 型怪的物理防禦 +100%")
             continue
 
         # SetIgnoreDefRace_Percent(race_id, value)
