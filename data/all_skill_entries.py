@@ -61,4 +61,6 @@ all_skill_entries = {#範例[    "": {"type": "技能/料理","code":["",""]},
     #基因
     "大聲吶喊": {"type": "技能","code":["AddExtParam(1, 103, 4)","AddExtParam(1, 41, 30)"]},
     "手推車加速": {"type": "技能","code":["WeaponMasteryATK(50)"]},
+    #禁咒
+    "巔峰4(毀滅颶風)": {"type": "技能","code":["AddSkillMDamage(4, 30)","AddExtParam(1, 200, 100)"]},
 }

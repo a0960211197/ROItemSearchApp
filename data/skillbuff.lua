@@ -61,6 +61,13 @@
 	AddExtParam(1, 110, temp * 40)
 }
 
+[5228] = {
+	temp = GSklv(5228)
+	temp_wp = GetWeaponClass(4)
+	if temp_wp == 23 then
+		AddExtParam(1, 243, temp * 2)
+	end
+}
 [5365] = {
 	temp = GSklv(5365)
 	temp_wp = GetWeaponClass(4)

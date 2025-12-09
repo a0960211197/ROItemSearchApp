@@ -1,5 +1,5 @@
 -- Decompiled using luadec 2.1 UNICODE by sztupy (http://winmo.sztupy.hu) and viruscamp 
--- Command line was: ItemReformSystem.lub 
+-- Command line was: C:\Users\Administrator\source\repos\z2911902\ROItemSearchApp\data\LuaFiles514\Lua Files\ItemReform\ItemReformSystem.lub 
 
 ReformInfo = {
 [12] = {BaseItem = "Thanos_Sword", 

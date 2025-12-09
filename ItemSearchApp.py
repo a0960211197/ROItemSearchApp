@@ -6012,7 +6012,7 @@ class ItemSearchApp(QWidget):
                 if extract_lub_from_grf(ench_rel):
                     ench_src = os.path.join(BASE_DIR, ench_rel)
                     print("🧩 使用 luadec 反編譯 ItemReformSystem...")
-                    if not decompile_lub(ench_src, EnchantList_path):
+                    if not decompile_lub(ench_src, ItemReformSystem_path):
                         print("❌ 反編譯 ItemReformSystem 失敗")
                         return False
             else:
@@ -6911,6 +6911,7 @@ class ItemSearchApp(QWidget):
         self.apply_to_note_button.setVisible(False)
         self.apply_to_note_button.clicked.connect(self.clear_global_state)
         self.apply_to_note_button.clicked.connect(self.apply_result_to_note)
+        self.apply_to_note_button.clicked.connect(self.replace_custom_calc_content)
         
 
         
