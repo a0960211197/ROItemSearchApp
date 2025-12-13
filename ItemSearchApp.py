@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.16-251209"
+Version = "v0.1.17-251213"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -115,7 +115,7 @@ from sympy import sympify, symbols, Symbol
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLineEdit, QLabel,QGroupBox, QToolButton,QSizePolicy,
     QComboBox, QTextEdit, QMessageBox, QHBoxLayout, QScrollArea, QCheckBox, QMenuBar, QFileDialog,
-    QPushButton, QTabWidget, QFormLayout, QSpinBox  ,QDoubleSpinBox  ,QFrame , QGridLayout,QDialog, QListWidget, QButtonGroup,
+    QPushButton, QTabWidget, QFormLayout, QSpinBox  ,QDoubleSpinBox  ,QFrame , QGridLayout,QDialog, QListWidget, QButtonGroup,QSlider,
 )
 
 from datetime import datetime
@@ -229,12 +229,19 @@ DataRegistry.register(
     on_reload=lambda win: win.reload_job_list()  # 若職業列表要更新
 )
 
+DataRegistry.register(
+    key="jobHPSP",
+    path="data/job_dict.py",
+    var_name="job_4th_hpsp",
+    default={},
+    on_reload=lambda win: win.reload_job_list()  # 若職業列表要更新
+)
 
 # 外部py載入清單
 DataRegistry.reload_all()#先讀取所有外部py並設定預設
 all_skill_entries = DataRegistry.loaded_data["skills"]# 載入技能效果資料
 job_dict  = DataRegistry.loaded_data["jobs"]#職業job_id
-
+job_4th_hpsp = DataRegistry.loaded_data["jobHPSP"]#HPSP
 
 
 
@@ -1001,6 +1008,10 @@ class CSVEditor(QMainWindow):
             "Rangedamage": {
                 "label": "技能遠距傷害",
                 "tooltip": "技能套用遠距傷害計算。"
+            },
+            "skill_SpecialATK": {
+                "label": "技能特殊段加算傷害",
+                "tooltip": "綠光減傷前加算。"
             }
 
         }
@@ -1027,6 +1038,7 @@ class CSVEditor(QMainWindow):
                 edit_field = QComboBox()                
                 edit_field.addItem("物理", "physical")
                 edit_field.addItem("魔法", "magic")
+                edit_field.addItem("龍息", "d_b")
             elif header.lower() in ("element","combo_element"):
                 edit_field = QComboBox()
                 element_options = [
@@ -1132,7 +1144,7 @@ class CSVEditor(QMainWindow):
                         idx = widget.findData(txt.lower())
                         if idx < 0:
                             # 舊資料可能是中文 → 映射到英文再找
-                            zh2en = {"魔法": "magic", "物理": "physical"}
+                            zh2en = {"魔法": "magic", "物理": "physical", "龍息":"d_b"}
                             mapped = zh2en.get(txt)
                             if mapped:
                                 idx = widget.findData(mapped)
@@ -2824,42 +2836,42 @@ class ItemSearchApp(QWidget):
     
     def replace_custom_calc_content(self):
         # 特殊 CheckBox 狀態
-        special_state = "|".join(
-            f"{key}:{checkbox.isChecked()}"
-            for key, checkbox in self.special_checkboxes.items()
-        )
-        current_text = self.custom_calc_box.toPlainText()
-        skill_key = self.skill_box.currentData()
-        skill_lv = self.skill_LV_input.text()
+        # special_state = "|".join(
+        #     f"{key}:{checkbox.isChecked()}"
+        #     for key, checkbox in self.special_checkboxes.items()
+        # )
+        # current_text = self.custom_calc_box.toPlainText()
+        # skill_key = self.skill_box.currentData()
+        # skill_lv = self.skill_LV_input.text()
         
-        # ✅ 裝備狀態（你可以根據實際來源換成 combo_effect_text.text() 之類的）
-        equip_state = self.total_effect_text.toPlainText()
-        # 目標設定選項
-        size_key = self.size_box.currentData()
-        element_key = self.element_box.currentData()
-        race_key = self.race_box.currentData()
-        class_key = self.class_box.currentData()
-        element_lv_key = self.element_lv_input.text() or 1
-        user_element_key = self.attack_element_box.currentData()
+        # # ✅ 裝備狀態（你可以根據實際來源換成 combo_effect_text.text() 之類的）
+        # equip_state = self.total_effect_text.toPlainText()
+        # # 目標設定選項
+        # size_key = self.size_box.currentData()
+        # element_key = self.element_box.currentData()
+        # race_key = self.race_box.currentData()
+        # class_key = self.class_box.currentData()
+        # element_lv_key = self.element_lv_input.text() or 1
+        # user_element_key = self.attack_element_box.currentData()
 
-        #monsterDamage_key = self.monsterDamage_input.text() or "0"#指定魔物增傷UI
-        # 整數輸入值（注意空字串要預設為 0）
-        d_ef = self.def_input.text() or "0"
-        defc = self.defc_input.text() or "0"
-        res = self.res_input.text() or "0"
-        mdef = self.mdef_input.text() or "0"
-        mdefc = self.mdefc_input.text() or "0"
-        mres = self.mres_input.text() or "0"
-        skill_formula = self.skill_formula_input.text()
-        # 組合新的 state_key
-        state_key = f"{skill_formula}|{skill_key}|{skill_lv}|{current_text}|{equip_state}|{special_state}|{size_key}|{element_key}|{race_key}|{class_key}|{d_ef}|{defc}|{res}|{mdef}|{mdefc}|{mres}|{element_lv_key}|{user_element_key}"
+        # #monsterDamage_key = self.monsterDamage_input.text() or "0"#指定魔物增傷UI
+        # # 整數輸入值（注意空字串要預設為 0）
+        # d_ef = self.def_input.text() or "0"
+        # defc = self.defc_input.text() or "0"
+        # res = self.res_input.text() or "0"
+        # mdef = self.mdef_input.text() or "0"
+        # mdefc = self.mdefc_input.text() or "0"
+        # mres = self.mres_input.text() or "0"
+        # skill_formula = self.skill_formula_input.text()
+        # # 組合新的 state_key
+        # state_key = f"{skill_formula}|{skill_key}|{skill_lv}|{current_text}|{equip_state}|{special_state}|{size_key}|{element_key}|{race_key}|{class_key}|{d_ef}|{defc}|{res}|{mdef}|{mdefc}|{mres}|{element_lv_key}|{user_element_key}"
 
 
-        if getattr(self, "_last_calc_state", None) == state_key:
-            print("【⛔ 裝備效果沒有更動，跳過運算。】")
-            return  # ⛔ 跳過重複運算
+        # if getattr(self, "_last_calc_state", None) == state_key:
+        #     print("【⛔ 裝備效果沒有更動，跳過運算。】")
+        #     return  # ⛔ 跳過重複運算
 
-        self._last_calc_state = state_key  # ✅ 更新狀態紀錄
+        # self._last_calc_state = state_key  # ✅ 更新狀態紀錄
 
         print("【🧠 執行 replace_custom_calc_content()】")
         # 原本你的公式解析邏輯
@@ -2907,8 +2919,6 @@ class ItemSearchApp(QWidget):
             globals()[f"total_{stat}"] = total
 
 
-        
-
         #======================取所有增傷資料到變數區=====================
         effect_dict = getattr(self, "effect_dict_raw", {})
         globals()["HP"] = sum(val for val, _ in effect_dict.get(("MHP", ""), []))
@@ -2917,6 +2927,9 @@ class ItemSearchApp(QWidget):
         globals()["SPPercent"] = sum(val for val, _ in effect_dict.get(("MSP%", "%"), []))
         globals()["HPRegenPercent"] = sum(val for val, _ in effect_dict.get(("HP自然恢復%", "%"), []))
         globals()["SPRegenPercent"] = sum(val for val, _ in effect_dict.get(("SP自然恢復%", "%"), []))
+
+
+
 
         #print(f"hp:{HP} hp%:{HPPercent}sp:{SP} sp%:{SPPercent} h恢復{HPRegenPercent}s恢復 {SPRegenPercent}")
         #呼叫處理物理,魔法增傷,無視防禦 例:(對"小型"敵人的魔法傷害 +5%)
@@ -3093,10 +3106,12 @@ class ItemSearchApp(QWidget):
         #=======取得目前有的技能等級如果沒有回傳0        
         def GSklv(skill_id):
             return enabled_skill_levels.get(skill_id, 0)  # 若沒有這個技能，預設回傳 0
+
         #處理公式中的動態變數
         def replace_gsklv_calls(formula: str) -> str:
             pattern = r'GSklv\((\d+)\)'  # 找出 GSklv(數字)
             return re.sub(pattern, lambda m: str(GSklv(int(m.group(1)))), formula)
+
         def replace_custom_calls(formula):#例如超自然波 書跟杖打擊
             import re
     
@@ -3122,7 +3137,41 @@ class ItemSearchApp(QWidget):
                 replace_wpon_expr,
                 formula
             )
+        
 
+        def eval_formula_with_vars(formula: str, allowed_vars: dict):
+            """
+            回傳：
+            - expanded_formula：變數已展開的公式字串
+            - result：計算結果（失敗為 None）
+            """
+
+            allowed_funcs = {
+                "floor": math.floor,
+                "ceil":  math.ceil,
+                "trunc": math.trunc,
+            }
+
+            # 變數替換
+            expanded_formula = formula
+            for var, value in allowed_vars.items():
+                expanded_formula = re.sub(
+                    rf'\b{re.escape(var)}\b',
+                    str(value),
+                    expanded_formula
+                )
+
+            # 計算
+            try:
+                result = eval(
+                    expanded_formula,
+                    {"__builtins__": None},
+                    allowed_funcs
+                )
+            except (SyntaxError, NameError, ZeroDivisionError, TypeError):
+                return expanded_formula, None
+
+            return expanded_formula, result
 
 
 
@@ -3238,7 +3287,7 @@ class ItemSearchApp(QWidget):
         atk_refine_total, patk_refine_total = self.calc_weapon_refine_atk(weaponR_Level, weaponRefineR, weaponGradeR)
         atk_refine_total_L, patk_refine_total_L = self.calc_weapon_refine_atk(weaponL_Level, weaponRefineL, weaponGradeL)#atk_refine_total_L 副手不計算ATK 只計算PATK
         #PATK(裝備+精煉+特性素質)
-        patk_total = PATK + int(total_POW/3) + int(total_CON/5) + patk_refine_total + patk_refine_total_L
+        globals()["total_PATK"] = PATK + int(total_POW/3) + int(total_CON/5) + patk_refine_total + patk_refine_total_L
         #武器MATK精煉計算
         smatk_refine_total = 0
         matk_refine_total, smatk_refine_total = self.calc_weapon_refine_matk(weaponR_Level, weaponRefineR, weaponGradeR)
@@ -3247,7 +3296,7 @@ class ItemSearchApp(QWidget):
         #print(f"精煉加成 S.MATK: {smatk_refine_total}")
         #============================魔法各增傷計算區============================
         #SMATK(裝備+精煉+特性素質)
-        SMATK_total = SMATK + int(total_SPL/3) + int(total_CON/5) + smatk_refine_total + smatk_refine_total_L
+        total_SMATK = SMATK + int(total_SPL/3) + int(total_CON/5) + smatk_refine_total + smatk_refine_total_L
         
         
         def apply_stepwise_percent_mode(base, *bonuses_with_mode):
@@ -3462,8 +3511,8 @@ class ItemSearchApp(QWidget):
         skill_Rangedamage = int(skill_row["Rangedamage"]) if pd.notna(skill_row.get("Rangedamage")) else 0 
         #print(f"技能遠傷判斷: {skill_Rangedamage}")
         #技能爆傷判斷
-        Critical_hit = float(skill_row["Critical_hit"]) if pd.notna(skill_row.get("Critical_hit")) else 1
-
+        Critical_hit = float(skill_row["Critical_hit"]) if pd.notna(skill_row.get("Critical_hit")) else 0
+        
         print(f"攻擊模式：{attack_type}")
         
 
@@ -3515,11 +3564,14 @@ class ItemSearchApp(QWidget):
                         full_formula = formula
 
                 # === 套用替換函式 ===
-                full_formula = replace_gsklv_calls(full_formula)
-                full_formula = replace_custom_calls(full_formula)
+                full_formula = replace_gsklv_calls(full_formula)#替換gsklv
+                full_formula = replace_custom_calls(full_formula)#替換wpon(0)2:1
+                full_formula_show,full_formula = eval_formula_with_vars(full_formula, allowed_vars)# 手動變數替換後的字串公式 支援捨去計算               
+                skill_SpecialATK_show , skill_SpecialATK = eval_formula_with_vars(str(skill_row["skill_SpecialATK"]).strip() if pd.notna(skill_row.get("skill_SpecialATK")) else "0", allowed_vars) #技能隱藏段
+                
 
-                print(f"轉換後的公式：{full_formula}")
-                bottom_result.append(f"{pad_label('技能公式:')}[{i+1}/{repeat_count}] {full_formula}")
+                print(f"轉換後的公式：{full_formula_show}")
+                bottom_result.append(f"{pad_label('技能公式:')}[{i+1}/{repeat_count}] {full_formula_show}")
                 #怪物減傷取得
                 def get_damage_reduction_value(self):
                     text = self.damage_reduction_combobox.currentText()  # 例如 "100%"
@@ -3539,6 +3591,8 @@ class ItemSearchApp(QWidget):
                     calc_result = expr.evalf(subs=allowed_vars)
                     #skill_result = round(calc_result, 2)
                     skill_result = int(calc_result)
+                    #skill_result = calc_result
+
                     print(f"[{i+1}/{repeat_count}] 技能公式結果: {skill_result}")
                     
                     if attack_type == "magic":
@@ -3562,7 +3616,7 @@ class ItemSearchApp(QWidget):
                             #特定魔物增傷
                             (target_monsterMDamage,1),
                             #smatk 
-                            (SMATK_total,1),
+                            (total_SMATK,1),
                             #技能倍率
                             (skill_result,0),
                             #屬性倍率
@@ -3583,6 +3637,7 @@ class ItemSearchApp(QWidget):
                             #屬性紋章 風水火地
                             (attribute_seal_buff,"raw")
                         )
+                        
                     elif attack_type == "physical":
                         #先計算ATK%已利後續計算
                         ATK_percent_sign = int(ATKC_Mweapon_ALL * (ATK_percent/100))
@@ -3614,7 +3669,7 @@ class ItemSearchApp(QWidget):
                         #最終ATK
                         final_damage_1 += ATKF
                         #print(f"最終ATK: {final_damage_1}")
-                        #爆傷+技能半爆判斷
+                        #爆傷+技能半全爆擊判斷
                         CRI_Critical_hit = (Damage_CRI * Critical_hit)
                         #(潛擊)+(爪痕)+(撼動)
                         special_melee_BUFF = max(1, sneak_attack_buff + DARKCROW_attack_buff + RUSH_attack_buff)
@@ -3624,8 +3679,16 @@ class ItemSearchApp(QWidget):
                         #技能遠傷進傷
                         if skill_Rangedamage == 1:
                             MR_AttackDamage = RangeAttackDamage
+                            specialatkbuff = special_away_BUFF
                         else:
                             MR_AttackDamage = MeleeAttackDamage
+                            specialatkbuff = special_melee_BUFF
+
+                        #是否技能爆擊
+                        if Critical_hit == 0:
+                            Critical_hitmag = -40#不吃crate
+                        else:
+                            Critical_hitmag = total_CRATE
                         
                         #print(f"special_away_BUFF:{special_away_BUFF}")
                         #print(f"special_melee_BUFF:{special_melee_BUFF}")
@@ -3634,7 +3697,7 @@ class ItemSearchApp(QWidget):
                                 #最終ATK初始值
                                 final_damage_1,
                                 #P.ATK
-                                (patk_total,1),
+                                (total_PATK,1),
                                 #爆傷
                                 (CRI_Critical_hit,1),
                                 #遠傷% 技能判斷
@@ -3652,9 +3715,9 @@ class ItemSearchApp(QWidget):
                                 #技能段技能增傷
                                 (passive_skill_buff,1),
                                 #C.RATE
-                                (total_CRATE,1.4),
-                                #(潛擊)+(孢子)+(爪痕)+(撼動)
-                                (special_away_BUFF,"raw"),
+                                (Critical_hitmag,1.4),
+                                #(潛擊)+(孢子)+(爪痕)+(撼動) 遠傷判斷類型
+                                (specialatkbuff,"raw"),
                                 #屬性紋章 風水火地
                                 (attribute_seal_buff,"raw")
                             )
@@ -3664,7 +3727,7 @@ class ItemSearchApp(QWidget):
                                 #最終ATK初始值
                                 final_damage_1,
                                 #P.ATK
-                                (patk_total,1),
+                                (total_PATK,1),
                                 #武器修煉ATK
                                 (WeaponMasteryATK,"+"),
                                 #爆傷
@@ -3675,9 +3738,9 @@ class ItemSearchApp(QWidget):
                                 (skill_result,0),
                                 #高階拳刃修煉
                                 (SKILL_ASC_KATAR,1),
-                                #敵人MRES減傷
+                                #敵人RES減傷
                                 (damage_nores,"raw"),
-                                #敵人MDEF減傷
+                                #敵人DEF減傷
                                 (damage_nodef,"raw"),
                                 #敵人DEF減算
                                 (target_defc,None),
@@ -3686,17 +3749,56 @@ class ItemSearchApp(QWidget):
                                 #技能段技能增傷
                                 (passive_skill_buff,1),
                                 #C.RATE
-                                (total_CRATE,1.4),
-                                #(潛擊)+(爪痕)+(撼動)
-                                (special_melee_BUFF,"raw"),
+                                (Critical_hitmag,1.4),
+                                #(潛擊)+(爪痕)+(撼動) 遠傷判斷類型
+                                (specialatkbuff,"raw"),
                                 #屬性紋章 風水火地
                                 (attribute_seal_buff,"raw")
                             )
                             #print(f"技能爆擊最終傷害: {final_damage}")
+                    
+                    elif attack_type == "d_b":
+                        #技能遠傷進傷
+                        if skill_Rangedamage == 1:
+                            MR_AttackDamage = RangeAttackDamage
+                        else:
+                            MR_AttackDamage = MeleeAttackDamage
+
+                        #是否技能爆擊
+                        if Critical_hit == 0:
+                            Critical_hitmag = -40#不吃crate
+                        else:
+                            Critical_hitmag = total_CRATE/100
+
+                        default = 0#龍火只吃技能倍率 給他個0做基礎
+                        final_damage = apply_stepwise_percent_mode(
+                            default,
+                            #技能倍率
+                            (skill_result,"+"),
+                            #敵人屬性耐性(1+萬紫+彗星)
+                            ((1 + magic_poison_buff),"raw"),
+                            #敵人RES減傷
+                            (damage_nores,"raw"),
+                            #敵人DEF減傷
+                            (damage_nodef,"raw"),
+                            #敵人DEF減算
+                            (target_defc,None),
+                            #裝備段技能增傷
+                            (Use_Skills,1),
+                            #技能段技能增傷
+                            (passive_skill_buff,1),
+                            #遠傷% 技能判斷
+                            (MR_AttackDamage,1),
+                            #屬性倍率
+                            (get_damage_multiplier(User_attack_element, target_element, target_element_lv),0)
+                        )
                         
+                        
+
                     else:
                         raise ValueError(f"未知的攻擊類型: {attack_type}")
-
+                    #最終隱藏段加算
+                    final_damage += skill_SpecialATK
                     #最終怪物強制減傷(boss綠光)
                     final_damage = int(final_damage * get_damage_reduction_value(self))
 
@@ -3797,7 +3899,7 @@ class ItemSearchApp(QWidget):
 
          
         #=========================魔法各增傷計算顯示區=======================
-        #print(f"前MATK: {MATKF} 後MATK:{MATKC} 武器MATK:{MATK_Mweapon} S.MATK:{SMATK_total}")  
+        #print(f"前MATK: {MATKF} 後MATK:{MATKC} 武器MATK:{MATK_Mweapon} S.MATK:{total_SMATK}")  
         #print(f"打擊次數：{len(results)}")        
         result.append(f"{pad_label('使用技能:')}{selected_skill_name}")
         if not results:
@@ -3890,7 +3992,7 @@ class ItemSearchApp(QWidget):
             result.append(f"{pad_label('魔法種族:')}{round(get_effect_multiplier('MD_Race', target_race) + get_effect_multiplier('MD_Race', 9999))}%")
             result.append(f"{pad_label('魔法階級:')}{round(get_effect_multiplier('MD_class', target_class))}%")
             result.append(f"{pad_label('魔物增傷:')}{round(target_monsterMDamage)}%")
-            result.append(f"{pad_label('S.MATK:')}{round(SMATK_total)}")
+            result.append(f"{pad_label('S.MATK:')}{round(total_SMATK)}")
             result.append(f"{pad_label('技能倍率:')}{results[0]['skill_result']}%")
             result.append(f"{pad_label('屬性倍率:')}{get_damage_multiplier(User_attack_element, target_element, target_element_lv)}%")
             result.append(f"{pad_label('前MDEF:')}{target_mdef}")
@@ -3927,7 +4029,7 @@ class ItemSearchApp(QWidget):
             result.append(f"{pad_label('物理種族:')}{round(get_effect_multiplier('D_Race', target_race) + get_effect_multiplier('D_Race', 9999))}%")
             result.append(f"{pad_label('物理階級:')}{round(get_effect_multiplier('D_class', target_class))}%")
             result.append(f"{pad_label('魔物增傷:')}{round(target_monsterDamage)}%")
-            result.append(f"{pad_label('P.ATK:')}{round(patk_total)}")
+            result.append(f"{pad_label('P.ATK:')}{round(total_PATK)}")
             result.append(f"{pad_label('物理屬性敵人:')}{round(get_effect_multiplier('D_element', target_element) + get_effect_multiplier('D_element', 10))}%")
             result.append(f"{pad_label('爆傷:')}{round(Damage_CRI)}%")
             if skill_Rangedamage == 1:#DEX系
@@ -3946,9 +4048,39 @@ class ItemSearchApp(QWidget):
             result.append(f"{pad_label('RES:')}{target_res}")
             result.append(f"{pad_label('無視物理抗性%:')}{res_reduction}%")
             result.append(f"{pad_label('物理破抗性後傷害:')}{damage_nores * 100:.2f}%")
-            
 
-            
+        elif attack_type == "d_b":
+            self.def_label.setVisible(True)
+            self.def_input.setVisible(True)
+            self.defc_label.setVisible(True)
+            self.defc_input.setVisible(True)
+            self.res_label.setVisible(True)
+            self.res_input.setVisible(True)
+            self.mdef_label.setVisible(False)
+            self.mdef_input.setVisible(False)
+            self.mdefc_label.setVisible(False)
+            self.mdefc_input.setVisible(False)
+            self.mres_label.setVisible(False)
+            self.mres_input.setVisible(False)
+            result.append(f"=========================以下各增傷數值===========================")
+            if weapon_class in (11,13,14,17,18,19,20,21):#DEX系
+                result.append(f"{pad_label('前ATK (DEX系):')}{FATK:,}")
+            else:#STR系
+                result.append(f"{pad_label('前ATK(STR系):')}{NATK:,}")
+            result.append(f"{pad_label('武器ATK:')}{ATK_Mweapon:,}")
+            if skill_Rangedamage == 1:#DEX系
+                result.append(f"{pad_label('遠傷:')}{round(RangeAttackDamage)}%")
+            else:#STR系
+                result.append(f"{pad_label('近傷:')}{round(MeleeAttackDamage)}%")
+            result.append(f"{pad_label('技能倍率:')}{results[0]['skill_result']}%")
+            result.append(f"{pad_label('屬性倍率:')}{get_damage_multiplier(User_attack_element, target_element, target_element_lv)}%")
+
+
+
+
+
+
+
         else:
             raise ValueError(f"未知的攻擊類型: {attack_type}")
             
@@ -4130,7 +4262,7 @@ class ItemSearchApp(QWidget):
         smatk_bonus_per_refine = 2
 
         matk_total = 0.0
-        smatk_total = 0.0
+        total_SMATK = 0.0
 
         if weapon_Level < 5:
             # 固定加成：所有等級都算
@@ -4147,14 +4279,14 @@ class ItemSearchApp(QWidget):
 
             #matk_total = base + variance + over16
             matk_total = base + over16#安定後浮動加成暫時取消
-            smatk_total = 0.0
+            total_SMATK = 0.0
 
         else:  # weapon_Level == 5
             matk_per_refine = level5_grade_bonus.get(weaponGradeR, 0.0)
             matk_total = weaponRefineR * matk_per_refine
-            smatk_total = weaponRefineR * smatk_bonus_per_refine
+            total_SMATK = weaponRefineR * smatk_bonus_per_refine
 
-        return matk_total, smatk_total
+        return matk_total, total_SMATK
         
     def calc_weapon_refine_atk(self, weapon_Level, weaponRefineR, weaponGradeR):
         """
@@ -4188,7 +4320,7 @@ class ItemSearchApp(QWidget):
         patk_bonus_per_refine = 2
 
         atk_total = 0.0
-        patk_total = 0.0
+        total_PATK = 0.0
 
         if weapon_Level < 5:
             # 固定加成：所有等級都算
@@ -4205,14 +4337,14 @@ class ItemSearchApp(QWidget):
 
             #atk_total = base + variance + over16
             atk_total = base + over16#安定後浮動加成暫時取消
-            patk_total = 0.0
+            total_PATK = 0.0
 
         else:  # weapon_Level == 5
             atk_per_refine = level5_grade_bonus.get(weaponGradeR, 0.0)
             atk_total = weaponRefineR * atk_per_refine
-            patk_total = weaponRefineR * patk_bonus_per_refine
+            total_PATK = weaponRefineR * patk_bonus_per_refine
 
-        return atk_total, patk_total
+        return atk_total, total_PATK
 
 
 
@@ -4376,6 +4508,7 @@ class ItemSearchApp(QWidget):
         global_armor_level_map.clear()
         global_weapon_type_map.clear()
         global_weapon_matk_map.clear()
+        global_weapon_atk_map.clear()
         
         
         enabled_skill_levels.clear()
@@ -4388,6 +4521,7 @@ class ItemSearchApp(QWidget):
             global_armor_level_map[slot] = 0
             global_weapon_type_map[slot] = 0
             global_weapon_matk_map[slot] = 0
+            global_weapon_atk_map[slot] = 0
         #self.update_combobox()
 
         #self.display_item_info()
@@ -5260,9 +5394,10 @@ class ItemSearchApp(QWidget):
         
 
     def trigger_total_effect_update(self):
-        self.display_all_effects()
+        
         self.update_total_effect_display()
         self.update_dex_int_half_note()
+        self.display_all_effects()
 
 
 
@@ -6242,7 +6377,7 @@ class ItemSearchApp(QWidget):
         self.input_fields = {}
 
         self.stat_fields = {
-            "BaseLv": 11, "JobLv": 12, "JOB": 19, 
+            "BaseLv": 11, "JobLv": 12, "JOB": 19, "MHP": 200 , "MSP": 202 ,
             "STR": 32, "AGI": 33, "VIT": 34, "INT": 35, "DEX": 36, "LUK": 37,
             "POW": 255, "STA": 256, "WIS": 257, "SPL": 258, "CON": 259, "CRT": 260,"石碑開啟格數": 263 ,"石碑精煉": 264
             
@@ -6306,6 +6441,165 @@ class ItemSearchApp(QWidget):
         self.stat_bonus_labels = {}
 
         for label, gid in self.stat_fields.items():
+            # ✅ MHP / MSP 同一行 + 加滑桿（HP% / SP%）
+            if label == "MHP":
+                row_layout = QHBoxLayout()
+                row_layout.setAlignment(Qt.AlignLeft)
+
+                # --- MHP ---
+                mhp_label = QLabel("MHP")
+                mhp_label.setFixedWidth(50)
+                row_layout.addWidget(mhp_label)
+
+                mhp_field = QLineEdit()
+                mhp_field.setPlaceholderText("MHP (get(200))")
+                mhp_field.textChanged.connect(self.trigger_total_effect_update)
+                mhp_field.setMaximumWidth(80)
+                self.input_fields["MHP"] = mhp_field
+                row_layout.addWidget(mhp_field)
+
+                # --- MSP ---
+                msp_label = QLabel("MSP")
+                msp_label.setFixedWidth(50)
+                row_layout.addWidget(msp_label)
+
+                msp_field = QLineEdit()
+                msp_field.setPlaceholderText("MSP (get(202))")
+                msp_field.textChanged.connect(self.trigger_total_effect_update)
+                msp_field.setMaximumWidth(80)
+                self.input_fields["MSP"] = msp_field
+                row_layout.addWidget(msp_field)
+
+                char_layout.addLayout(row_layout)
+
+                # ===== 滑桿區：HP% / SP% =====
+                self.hp_percent_label = QLabel("HP 100%：0 / 0")
+                char_layout.addWidget(self.hp_percent_label)
+
+                self.hp_slider = QSlider(Qt.Horizontal)
+                self.hp_slider.setRange(0, 100)
+                self.hp_slider.setValue(100)
+                char_layout.addWidget(self.hp_slider)
+
+                self.sp_percent_label = QLabel("SP 100%：0 / 0")
+                char_layout.addWidget(self.sp_percent_label)
+
+                self.sp_slider = QSlider(Qt.Horizontal)
+                self.sp_slider.setRange(0, 100)
+                self.sp_slider.setValue(100)
+                char_layout.addWidget(self.sp_slider)
+                self.hp_sp_widgets = [
+                    mhp_label,
+                    mhp_field,
+                    msp_label,
+                    msp_field,
+                    self.hp_percent_label,
+                    self.hp_slider,
+                    self.sp_percent_label,
+                    self.sp_slider,
+                ]
+                
+                # ===== 4轉職業 HP/SP 表 =====
+                self.jobhp = 0
+                self.jobsp = 0
+
+                def update_hp_sp_slider_visibility():
+                    job_id = self.input_fields["JOB"].currentData()
+
+                    job_info = job_dict.get(job_id, {})
+                    enable = job_info.get("HP_SP_widget", False)
+
+                    for w in self.hp_sp_widgets:
+                        w.setVisible(enable)
+
+                
+
+                def update_job_4th_hpsp_bonus():
+                    job_id = self.input_fields["JOB"].currentData()
+
+                    try:
+                        base_lv = int(self.input_fields["BaseLv"].text())
+                    except:
+                        base_lv = None
+
+                    self.jobhp = 0
+                    self.jobsp = 0
+
+                    if base_lv and 201 <= base_lv <= 260:
+                        idx = base_lv - 201
+                        job_table = job_4th_hpsp.get(job_id)
+
+                        if job_table:
+                            hp_list = job_table.get("HP", [])
+                            sp_list = job_table.get("SP", [])
+                            if idx < len(hp_list):
+                                self.jobhp = hp_list[idx]
+                            if idx < len(sp_list):
+                                self.jobsp = sp_list[idx]
+                
+
+                def _safe_int(text):
+                    try:
+                        return int(text)
+                    except:
+                        return 0 
+                
+
+                def update_hp_sp_slider_display():
+                    update_job_4th_hpsp_bonus()
+                    
+                    mhp_input = _safe_int(self.input_fields["MHP"].text())
+                    msp_input = _safe_int(self.input_fields["MSP"].text())
+                    HP = globals().get("HP", 0)
+                    SP = globals().get("SP", 0)
+                    HPPercent = globals().get("HPPercent", 0)
+                    SPPercent = globals().get("SPPercent", 0)
+                    VIT = globals().get("total_VIT", 0)
+                    INT = globals().get("total_INT", 0)
+                    print(f"{self.jobhp} {self.jobsp} {HP} {SP} {HPPercent} {SPPercent} {VIT} {INT} {mhp_input} {msp_input}")
+
+                    HP = HP * (1+HPPercent/100)
+                    SP = SP * (1+SPPercent/100)
+                    jobmaxhp = int(self.jobhp * ((100+VIT)/100) * (1+HPPercent/100) + HP)
+                    jobmaxsp = int(self.jobsp * ((100+INT)/100) * (1+SPPercent/100) + SP)
+
+                    # 使用者沒輸入或輸入 0 → 用職業表
+                    globals()["MHP"] = mhp_input if mhp_input > 0 else jobmaxhp
+                    globals()["MSP"] = msp_input if msp_input > 0 else jobmaxsp
+
+                    hp_pct = self.hp_slider.value()
+                    sp_pct = self.sp_slider.value()
+
+                    globals()["MHP_NOW"] = int(MHP * hp_pct / 100) if MHP > 0 else 0
+                    globals()["MSP_NOW"] = int(MSP * sp_pct / 100) if MSP > 0 else 0
+
+                    self.hp_percent_label.setText(f"HP {hp_pct}%：{MHP_NOW} / {MHP}")
+                    self.sp_percent_label.setText(f"SP {sp_pct}%：{MSP_NOW} / {MSP}")
+
+                    
+                def jobsphp_display():
+                    update_hp_sp_slider_visibility()
+                    update_hp_sp_slider_display()
+
+                self.jobsphp_display = jobsphp_display#註冊到全域函數
+
+                # 連動：滑桿、以及 MHP/MSP 被改時都要更新顯示
+                self.hp_slider.valueChanged.connect(update_hp_sp_slider_display)                
+                self.sp_slider.valueChanged.connect(update_hp_sp_slider_display)
+                self.input_fields["MHP"].textChanged.connect(update_hp_sp_slider_display)
+                self.input_fields["MSP"].textChanged.connect(update_hp_sp_slider_display)
+                self.input_fields["JOB"].currentIndexChanged.connect(update_hp_sp_slider_display)
+                self.input_fields["BaseLv"].textChanged.connect(update_hp_sp_slider_display)
+
+
+                update_hp_sp_slider_display()
+                continue
+
+
+
+            # ✅ 已經在 MHP 那邊做掉了，MSP 這輪跳過
+            if label == "MSP":
+                continue
             row_layout = QHBoxLayout()
             row_layout.setAlignment(Qt.AlignLeft)
             row_label = QLabel(label)
@@ -6341,6 +6635,10 @@ class ItemSearchApp(QWidget):
                     bonus_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
                     row_layout.addWidget(bonus_label)
                     self.stat_bonus_labels[label] = bonus_label
+                    if label == "VIT":
+                        self.input_fields["VIT"].textChanged.connect(update_hp_sp_slider_display)
+                    if label == "INT":
+                        self.input_fields["INT"].textChanged.connect(update_hp_sp_slider_display)
                 
                 if label == "JobLv":
                     bonus_label = QLabel("(預留，目前無作用。)")
@@ -6402,6 +6700,7 @@ class ItemSearchApp(QWidget):
 
 
         tab_widget.addTab(char_scroll, "角色能力值")
+        update_hp_sp_slider_visibility()
         
         # === 分頁2：裝備設定 ===
         equip_scroll = QScrollArea()
@@ -6911,8 +7210,9 @@ class ItemSearchApp(QWidget):
         self.apply_to_note_button.setVisible(False)
         self.apply_to_note_button.clicked.connect(self.clear_global_state)
         self.apply_to_note_button.clicked.connect(self.apply_result_to_note)
-        self.apply_to_note_button.clicked.connect(self.replace_custom_calc_content)
-        
+        self.apply_to_note_button.clicked.connect(lambda: QTimer.singleShot(0, self.replace_custom_calc_content))
+
+
 
         
         self.clear_field_button2 = QPushButton("清空")
@@ -7044,8 +7344,9 @@ class ItemSearchApp(QWidget):
         # 模擬效果隱藏選項
         self.hide_unrecognized_checkbox = QCheckBox("隱藏辨識內容")
         self.hide_unrecognized_checkbox.setChecked(True)  # 預設勾選
-        self.hide_unrecognized_checkbox.stateChanged.connect(self.display_item_info)
+        
         self.hide_unrecognized_checkbox.stateChanged.connect(self.trigger_total_effect_update)
+        self.hide_unrecognized_checkbox.stateChanged.connect(self.display_item_info)
         #不控制裝備屬性原始內容顯示就註解掉下面那行
         self.hide_unrecognized_checkbox.stateChanged.connect(self.toggle_equip_text_visibility)
         right_layout.addWidget(self.hide_unrecognized_checkbox)
@@ -7053,15 +7354,17 @@ class ItemSearchApp(QWidget):
         # 效果解析下方
         self.hide_physical_checkbox = QCheckBox("隱藏物理")
         self.hide_magical_checkbox = QCheckBox("隱藏魔法")
-        self.hide_physical_checkbox.stateChanged.connect(self.display_item_info)
-        self.hide_magical_checkbox.stateChanged.connect(self.display_item_info)
+        
         self.hide_physical_checkbox.stateChanged.connect(self.trigger_total_effect_update)
         self.hide_magical_checkbox.stateChanged.connect(self.trigger_total_effect_update)
+        self.hide_physical_checkbox.stateChanged.connect(self.display_item_info)
+        self.hide_magical_checkbox.stateChanged.connect(self.display_item_info)
         # ✅ 套裝來源顯示勾選框
         self.show_combo_source_checkbox = QCheckBox("顯示來源")
         self.show_combo_source_checkbox.setChecked(True)  # 預設勾選
-        self.show_combo_source_checkbox.stateChanged.connect(self.display_all_effects)
+        
         self.show_combo_source_checkbox.stateChanged.connect(self.trigger_total_effect_update)
+        self.show_combo_source_checkbox.stateChanged.connect(self.display_all_effects)
 
         # 減傷倍率下拉選單
         self.damage_reduction_label = QLabel("減傷倍率:")
@@ -7158,6 +7461,8 @@ class ItemSearchApp(QWidget):
 
         combo.currentIndexChanged.connect(filter_skills)#註冊JOB變更時過濾技能列表
         combo.currentIndexChanged.connect(update_stat_point)  # 更新職業是否擴充判斷總素質點
+        combo.currentIndexChanged.connect(update_hp_sp_slider_visibility)#更新HPSP滑桿顯示
+
         
         skill_select_layout_top = QHBoxLayout()
         skill_select_layout_bottom = QHBoxLayout()
@@ -7282,21 +7587,21 @@ class ItemSearchApp(QWidget):
         self.skill_hits_input.setPlaceholderText("次數")
         self.skill_hits_input.setText("1")
         self.skill_hits_input.setReadOnly(True)
-        self.skill_hits_input.setFixedWidth(40)
+        self.skill_hits_input.setFixedWidth(80)
         skill_select_layout_top.addWidget(self.skill_hits_input)
 
 
         # 技能公式欄
         self.skill_formula_input = QLineEdit()
         self.skill_formula_input.setPlaceholderText("技能公式")
-        self.skill_formula_input.setFixedWidth(450)
+        self.skill_formula_input.setFixedWidth(480)
         skill_select_layout_bottom.addWidget(self.skill_formula_input)
 
         # 公式結果欄
         self.skill_formula_result_input = QLineEdit()
         self.skill_formula_result_input.setPlaceholderText("公式結果")
         self.skill_formula_result_input.setReadOnly(True)
-        self.skill_formula_result_input.setFixedWidth(100)
+        self.skill_formula_result_input.setFixedWidth(120)
         skill_select_layout_bottom.addWidget(self.skill_formula_result_input)
         
 
@@ -7580,6 +7885,11 @@ class ItemSearchApp(QWidget):
         # 綁定輸入欄事件（動態更新）
         self.input_fields["DEX"].textChanged.connect(self.update_dex_int_half_note)
         self.input_fields["INT"].textChanged.connect(self.update_dex_int_half_note)
+        self.hp_slider.valueChanged.connect(self.replace_custom_calc_content)                
+        self.sp_slider.valueChanged.connect(self.replace_custom_calc_content)
+        self.unsync_button2.clicked.connect(update_hp_sp_slider_display)
+        self.apply_to_note_button.clicked.connect(update_hp_sp_slider_display)
+
         #開啟選單欄 
         self.update_window_title()
         self.setup_menu()
@@ -7897,6 +8207,8 @@ class ItemSearchApp(QWidget):
             self.update_window_title()
             self.display_all_effects()
             self.update_dex_int_half_note()
+            self.jobsphp_display()
+            self.replace_custom_calc_content()
             #QMessageBox.information(self, "完成", f"已載入：{file_path}")
         except Exception as e:
             QMessageBox.critical(self, "錯誤", f"載入失敗：\n{str(e)}")
@@ -7948,11 +8260,14 @@ class ItemSearchApp(QWidget):
 
         try:
             self.skill_filter_input.clear()
+            self.clear_global_state()
             self.load_saved_inputs(file_path)
             self.current_file = file_path
             self.update_window_title()
             self.display_all_effects()
             self.update_dex_int_half_note()
+            self.jobsphp_display()
+            self.replace_custom_calc_content()
 
 
         except Exception as e:

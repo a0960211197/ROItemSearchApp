@@ -8,7 +8,10 @@
 	
 [134] = {
 	temp = GSklv(134)
-	WeaponMasteryATK(temp * 3)
+	temp_wp = GetWeaponClass(4)
+	if temp_wp == 16 then
+		WeaponMasteryATK(temp * 3)
+	end
 }
 
 [226] = {
