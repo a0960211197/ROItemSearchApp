@@ -45,7 +45,20 @@
 
 }
 
+[315] = {
+	temp = GSklv(315)
+	temp_wp = GetWeaponClass(4)
+	if temp_wp == 13 or temp_wp == 14 then
+		AddExtParam(1, 41, temp * 3)
+		AddExtParam(1, 112, temp)
+		AddExtParam(1, 167, temp)
+	end
+}
 
+[2412] = {
+	temp = GSklv(2412)
+	AddExtParam(1, 110, temp * 30)
+}
 [2474] = {
 	temp = GSklv(2474)
 	temp_wp = GetWeaponClass(4)
@@ -71,6 +84,19 @@
 		AddExtParam(1, 243, temp * 2)
 	end
 }
+
+[5349] = {
+	temp = GSklv(5349)
+	temp_wp = GetWeaponClass(4)
+	if temp_wp == 13 or temp_wp == 14 then
+		AddExtParam(1, 243, temp * 3)
+		AddExtParam(1, 242, temp * 3)
+	end
+}
+
+
+
+
 [5365] = {
 	temp = GSklv(5365)
 	temp_wp = GetWeaponClass(4)

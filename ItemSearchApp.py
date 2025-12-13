@@ -5388,6 +5388,7 @@ class ItemSearchApp(QWidget):
         self.effect_dict_raw = effect_dict
         self.update_stat_bonus_display()
         #運算
+
         self.replace_custom_calc_content()
 
 
@@ -5398,6 +5399,7 @@ class ItemSearchApp(QWidget):
         self.update_total_effect_display()
         self.update_dex_int_half_note()
         self.display_all_effects()
+        self.jobsphp_display()
 
 
 
@@ -5746,6 +5748,8 @@ class ItemSearchApp(QWidget):
         self.display_item_info()
         if field_type == "詞條":
             self.result_output.clear()
+
+
 
     def save_compare_base(self):
         self.auto_compare_checkbox.setChecked(False)
@@ -6454,7 +6458,7 @@ class ItemSearchApp(QWidget):
                 mhp_field = QLineEdit()
                 mhp_field.setPlaceholderText("MHP (get(200))")
                 mhp_field.textChanged.connect(self.trigger_total_effect_update)
-                mhp_field.setMaximumWidth(80)
+                mhp_field.setMaximumWidth(100)
                 self.input_fields["MHP"] = mhp_field
                 row_layout.addWidget(mhp_field)
 
@@ -6466,7 +6470,7 @@ class ItemSearchApp(QWidget):
                 msp_field = QLineEdit()
                 msp_field.setPlaceholderText("MSP (get(202))")
                 msp_field.textChanged.connect(self.trigger_total_effect_update)
-                msp_field.setMaximumWidth(80)
+                msp_field.setMaximumWidth(100)
                 self.input_fields["MSP"] = msp_field
                 row_layout.addWidget(msp_field)
 
@@ -6498,6 +6502,10 @@ class ItemSearchApp(QWidget):
                     self.sp_percent_label,
                     self.sp_slider,
                 ]
+                self.MHP_MSP_widgets = [
+                    self.hp_percent_label,
+                    self.sp_percent_label,
+                ]
                 
                 # ===== 4轉職業 HP/SP 表 =====
                 self.jobhp = 0
@@ -6507,10 +6515,13 @@ class ItemSearchApp(QWidget):
                     job_id = self.input_fields["JOB"].currentData()
 
                     job_info = job_dict.get(job_id, {})
-                    enable = job_info.get("HP_SP_widget", False)
+                    widget = job_info.get("HP_SP_widget", False)
+                    MHP_MSP = job_info.get("MHP_MSP", False)
 
                     for w in self.hp_sp_widgets:
-                        w.setVisible(enable)
+                        w.setVisible(widget)
+                    for w in self.MHP_MSP_widgets:
+                        w.setVisible(MHP_MSP)
 
                 
 
@@ -6556,7 +6567,7 @@ class ItemSearchApp(QWidget):
                     SPPercent = globals().get("SPPercent", 0)
                     VIT = globals().get("total_VIT", 0)
                     INT = globals().get("total_INT", 0)
-                    print(f"{self.jobhp} {self.jobsp} {HP} {SP} {HPPercent} {SPPercent} {VIT} {INT} {mhp_input} {msp_input}")
+                    #print(f"{self.jobhp} {self.jobsp} {HP} {SP} {HPPercent} {SPPercent} {VIT} {INT} {mhp_input} {msp_input}")
 
                     HP = HP * (1+HPPercent/100)
                     SP = SP * (1+SPPercent/100)
@@ -6825,6 +6836,7 @@ class ItemSearchApp(QWidget):
             clear_equip_btn.setFixedWidth(40)
             clear_equip_btn.clicked.connect(self.clear_global_state)
             clear_equip_btn.clicked.connect(lambda _, field=equip_input: [field.clear(), self.display_item_info()])
+
 
             equip_row_layout.addWidget(equip_input)
             equip_row_layout.addWidget(clear_equip_btn)
@@ -7887,7 +7899,9 @@ class ItemSearchApp(QWidget):
         self.input_fields["INT"].textChanged.connect(self.update_dex_int_half_note)
         self.hp_slider.valueChanged.connect(self.replace_custom_calc_content)                
         self.sp_slider.valueChanged.connect(self.replace_custom_calc_content)
-        self.unsync_button2.clicked.connect(update_hp_sp_slider_display)
+        self.unsync_button.clicked.connect(update_hp_sp_slider_display)
+        self.unsync_button2.clicked.connect(update_hp_sp_slider_display)        
+        self.apply_equip_button.clicked.connect(update_hp_sp_slider_display)
         self.apply_to_note_button.clicked.connect(update_hp_sp_slider_display)
 
         #開啟選單欄 
@@ -8265,9 +8279,10 @@ class ItemSearchApp(QWidget):
             self.current_file = file_path
             self.update_window_title()
             self.display_all_effects()
+            self.replace_custom_calc_content()
             self.update_dex_int_half_note()
             self.jobsphp_display()
-            self.replace_custom_calc_content()
+
 
 
         except Exception as e:
@@ -8300,6 +8315,7 @@ class ItemSearchApp(QWidget):
             
         self.display_item_info()
         self.display_all_effects()
+
         self.global_refine_input.setVisible(True)
         self.global_grade_combo.setVisible(True)
 
