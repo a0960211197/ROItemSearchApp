@@ -8,7 +8,7 @@ import os
 import json
 import importlib.util
 # ======【設定區】======
-SHOW_OFFSET = False# 顯示 slot 在 group 內的 offset 位置
+SHOW_OFFSET = False# 顯示 slot 在 group 內的 offset 位置 False True
 SHOW_RAW = False# 顯示 slot 的原始 bytes（每8顆一行）
 SHOW_2201 = True# 顯示 2201 slot 卡片解析
 SHOW_2301 = True# 顯示 2301 slot 裝備解析
@@ -376,7 +376,7 @@ def run_replay_and_dump():
     # 3. 執行外部 exe 並將輸出寫入 temp.txt
     exe_path = "APP/RagnarokReplayExample.exe"  # 如果 exe 不在同資料夾請改成絕對路徑
 
-    cmd = f'"{exe_path}" "{rrf_path}" > "{output_txt}"'
+    cmd = f'"{exe_path}" "{rrf_path}" "{output_txt}"'
 
     print("執行中：", cmd)
     subprocess.run(cmd, shell=True)
@@ -497,7 +497,7 @@ def extract_session_stats(filepath):
     for field in target_fields:
         pat = (
             r"\[Chunk Session\] Unparsed opcode " + field +
-            r", Length=4\s+→ Raw hex:[^\{]*\{([^}]*)\}"
+            r", Length=4\s+[^\{]*\{([^}]*)\}"
         )
         m = re.search(pat, content, re.DOTALL)
         if not m:
@@ -592,14 +592,19 @@ def extract_session_stats(filepath):
 
 
 
-def extract_equip_chunk(filepath, json_data, get_itemname, chunk_name="EquippedItems", group_map=None):
+def extract_equip_chunk(filepath, json_data, get_itemname,
+                        chunk_name="EquippedItems", group_map=None):
+
+    import re
 
     with open(filepath, 'r', encoding='cp950', errors='ignore') as f:
         content = f.read()
 
+    # === 只抓 chunk 本體 ===
     pattern = (
-        r"\[Chunk Items\] Unparsed opcode " + re.escape(chunk_name) +
-        r", Length=\d+\s+→ Raw hex:\s*\[[^\]]+\]\s*\{([\s\S]*?)^\}"
+        r"\[Chunk Items\] Unparsed opcode "
+        + re.escape(chunk_name)
+        + r", Length=\d+\s*\[[^\]]+\]\s*\{([\s\S]*?)^\}"
     )
 
     match = re.search(pattern, content, re.MULTILINE)
@@ -607,99 +612,142 @@ def extract_equip_chunk(filepath, json_data, get_itemname, chunk_name="EquippedI
         print(f"找不到指定chunk！({chunk_name})")
         return
 
+    # === 轉成 hex list ===
     hex_body = match.group(1)
     hex_list = []
+
     for line in hex_body.splitlines():
         line = re.sub(r'^\s*[0-9A-Fa-f]{4,}\s+', '', line)
         hex_line = re.findall(r'([0-9A-Fa-f]{2})', line)
         if hex_line:
             hex_list.extend(hex_line)
 
+    # === 找所有 1901 ===
     group_tag = '1901'
     n = len(hex_list)
     group_starts = []
-    for i in range(n-1):
-        if hex_list[i].lower() == group_tag[:2] and hex_list[i+1].lower() == group_tag[2:]:
-            group_starts.append(i)
-    group_starts.append(n)
 
+    for i in range(n - 1):
+        if hex_list[i].lower() == '19' and hex_list[i + 1].lower() == '01':
+            group_starts.append(i)
+
+    group_starts.append(n)  # 保護結尾
+
+    # === slot 定義 ===
     slot_tags = [
-        '1901','1b01','1d01','1c01','1e01','1f01','2001','2101','2301','2701','2b01','2201','2401',
-        '2501','2601','2801','2901','2a01','2c01','2d01','1a01'
+        '1901','1b01','1d01','1c01','1e01','1f01','2001','2101',
+        '2301','2701','2b01','2201','2401','2501','2601','2801',
+        '2901','2a01','2c01','2d01','1a01'
     ]
 
-    for g in range(len(group_starts)-1):
-        group_number = g + 1
+    # === slot 判斷：是否完整 ===
+    def has_enough_slots(group_bytes):
+        found = set()
+        for slot in slot_tags:
+            b1, b2 = slot[:2], slot[2:]
+            for i in range(len(group_bytes) - 1):
+                if (group_bytes[i].lower() == b1
+                        and group_bytes[i + 1].lower() == b2):
+                    found.add(slot)
+                    break
+        return len(found) >= len(slot_tags)
+
+    weapon_id = None
+    shield_id = None
+
+    g = 0
+    group_number = 1
+
+    # === 核心：動態延伸 group ===
+    while g < len(group_starts) - 1:
+        start = group_starts[g]
+        end_idx = g + 1
+        group_bytes = None
+
+        while end_idx < len(group_starts):
+            end = group_starts[end_idx]
+            candidate = hex_list[start:end]
+
+            if has_enough_slots(candidate):
+                group_bytes = candidate
+                break
+
+            end_idx += 1
+
+        if group_bytes is None:
+            g += 1
+            continue
+
         if group_map is None:
-            group_map = GROUP_NAME_MAP   # 預設仍使用原本那套
+            group_map = GROUP_NAME_MAP
 
         group_name = group_map.get(group_number, f'未知部位{group_number}')
+
         if SHOW_GROUP_NAMES and group_name not in SHOW_GROUP_NAMES:
-            continue
-        if SHOW_GROUPS and group_number not in SHOW_GROUPS:
+            g = end_idx
+            group_number += 1
             continue
 
-        group_start = group_starts[g]
-        group_end = group_starts[g+1]
-        group_bytes = hex_list[group_start:group_end]
+        if SHOW_GROUPS and group_number not in SHOW_GROUPS:
+            g = end_idx
+            group_number += 1
+            continue
 
         group_lines = []
         group_has_data = False
 
+        # === slot offset ===
         slot_offsets = []
         for slot in slot_tags:
-            slot1, slot2 = slot[:2], slot[2:]
+            b1, b2 = slot[:2], slot[2:]
             idx = None
-            for i in range(len(group_bytes)-1):
-                if group_bytes[i].lower() == slot1 and group_bytes[i+1].lower() == slot2:
+            for i in range(len(group_bytes) - 1):
+                if group_bytes[i].lower() == b1 and group_bytes[i + 1].lower() == b2:
                     idx = i
                     break
             slot_offsets.append(idx)
 
+        # === slot parsing ===
         for si, idx in enumerate(slot_offsets):
+            if idx is None:
+                continue
+
             slot_name = slot_tags[si].upper()
-            # 只顯示有解析開關的slot
-            should_parse = False
-            if slot_name == '2201' and SHOW_2201:
-                should_parse = True
-            elif slot_name == '2301' and SHOW_2301:
-                should_parse = True
-            elif slot_name == '2701' and SHOW_2701:
-                should_parse = True
-            elif slot_name == '2D01' and SHOW_2D01:
-                should_parse = True
-            elif slot_name == '2B01' and SHOW_2B01:
-                should_parse = True
+
+            should_parse = (
+                (slot_name == '2201' and SHOW_2201) or
+                (slot_name == '2301' and SHOW_2301) or
+                (slot_name == '2701' and SHOW_2701) or
+                (slot_name == '2D01' and SHOW_2D01) or
+                (slot_name == '2B01' and SHOW_2B01)
+            )
 
             if SHOW_ONLY_PARSED_SLOTS and not should_parse:
                 continue
 
-            if idx is None:
-                continue
-
             next_idx = None
-            for ni in range(si+1, len(slot_offsets)):
+            for ni in range(si + 1, len(slot_offsets)):
                 if slot_offsets[ni] is not None and slot_offsets[ni] > idx:
                     next_idx = slot_offsets[ni]
                     break
+
             slot_bytes = group_bytes[idx:next_idx] if next_idx else group_bytes[idx:]
 
-            # 沒有資料(除了slot標頭以外沒內容)的也不顯示
-            if SHOW_ONLY_FILLED and (len(slot_bytes) <= 4):
+            if SHOW_ONLY_FILLED and len(slot_bytes) <= 4:
                 continue
 
-            # slot有資料才進來
-            slot_content = []
-            show_title = f'---- Slot {slot_name}'
+            title = f'---- Slot {slot_name}'
             if SHOW_OFFSET:
-                show_title += f' (offset={idx})'
-            show_title += ' ----'
-            slot_content.append(show_title)
+                title += f' (offset={idx})'
+            title += ' ----'
+
+            slot_content = [title]
+
             if SHOW_RAW:
                 for j in range(0, len(slot_bytes), 8):
-                    slot_content.append(' '.join(slot_bytes[j:j+8]))
-            slot_json_name = group_name 
-            # 特殊解析
+                    slot_content.append(' '.join(slot_bytes[j:j + 8]))
+
+            # === 2201 卡片 ===
             if slot_name == '2201':
                 try:
                     card_ids = [
@@ -708,133 +756,82 @@ def extract_equip_chunk(filepath, json_data, get_itemname, chunk_name="EquippedI
                         bytes_to_int_le(slot_bytes[14:17]),
                         bytes_to_int_le(slot_bytes[18:21]),
                     ]
-
-                    slot_content.append(f'四洞卡片ID：')
+                    slot_content.append('四洞卡片ID：')
 
                     for i, cid in enumerate(card_ids, 1):
+                        cname = get_itemname(cid) if cid else ""
+                        slot_content.append(f'  卡{i}: {cid or ""}　{cname}')
+                        json_data[f"{group_name}_card{i}"] = str(cname)
 
-                        # 若沒有資料 → JSON 要寫空白 ""
-                        if cid == 0:
-                            cname = ""
-                            cid = ""
-                        else:
-                            cname = get_itemname(cid)
+                except:
+                    slot_content.append('解析2201失敗')
 
-                        # 印出（如果 cname 空，就顯示卡{i}: 無）
-                        show_name = cname if cname else ""
-                        slot_content.append(f'  卡{i}: {cid}　{show_name}')
-
-                        # JSON 欄位：「頭上_card1」「頭上_card2」
-                        json_key = f"{group_name}_card{i}"
-                        json_data[json_key] = str(cname)  # 確保 JSON 一律是字串
-
-                except Exception:
-                    slot_content.append('解析卡片ID失敗，檢查slot長度與資料')
-
+            # === 2301 裝備ID ===
             elif slot_name == '2301':
                 try:
                     equip_id = bytes_to_int_le(slot_bytes[6:9])
-
-                    if equip_id == 0:
-                        equip_name = ""
-                    else:
-                        equip_name = get_itemname(equip_id)
-
-                    slot_content.append(f'裝備名稱ID：{equip_id}　{equip_name if equip_name else "無"}')
-                    json_data[f"{slot_json_name}_equip"] = str(equip_name)
+                    equip_name = get_itemname(equip_id) if equip_id else ""
+                    slot_content.append(f'裝備ID：{equip_id}　{equip_name}')
+                    json_data[f"{group_name}_equip"] = str(equip_name)
                 except:
-                    slot_content.append('解析裝備名稱ID失敗，檢查slot長度與資料')
+                    slot_content.append('解析2301失敗')
 
+            # === 2701 精煉 ===
             elif slot_name == '2701':
                 try:
                     refine_lv = int(slot_bytes[6], 16)
                     slot_content.append(f'精煉等級：{refine_lv}')
-                    json_data[f"{slot_json_name}"] = str(refine_lv)
+                    json_data[group_name] = str(refine_lv)
                 except:
-                                slot_content.append('解析精煉等級失敗，檢查slot長度與資料')
+                    slot_content.append('解析2701失敗')
+
+            # === 2D01 附魔 ===
             elif slot_name == '2D01':
                 try:
-                    enchant_desc_list = []      # 顯示用（中文）
-                    enchant_json_list = []      # JSON 用（AddExtParam / RaceAddDamage...）
-
+                    enchant_json = []
                     for i in range(4):
                         id_idx = 6 + i * 5
                         val_idx = 8 + i * 5
                         if val_idx >= len(slot_bytes):
                             break
-
-                        enchant_id = int(slot_bytes[id_idx], 16)
-                        enchant_val = int(slot_bytes[val_idx], 16)
-
-                        # 沒有附魔
-                        if enchant_id == 0 and enchant_val == 0:
-                            desc_text = ""
-                            json_text = ""
-                            show_text = "無"
+                        eid = int(slot_bytes[id_idx], 16)
+                        val = int(slot_bytes[val_idx], 16)
+                        if eid == 0 and val == 0:
+                            slot_content.append(f'  詞條{i+1}：無')
                         else:
-                            # ↙ 一次取得中文描述 & JSON 格式（你前面建好的 function）
-                            desc_text, json_text = get_enchant_info(enchant_id, enchant_val)
+                            desc, json_text = get_enchant_info(eid, val)
+                            slot_content.append(f'  詞條{i+1}：{desc}')
+                            enchant_json.append(json_text)
+                    json_data[f"{group_name}_note"] = "\n".join(enchant_json)
+                except:
+                    slot_content.append('解析2D01失敗')
 
-                            show_text = desc_text
-                            enchant_desc_list.append(desc_text)
-                            enchant_json_list.append(json_text)
-
-                        # 顯示
-                        slot_content.append(f'  詞條{i+1}：{show_text}')
-
-                    # ★★★ JSON：只有一個 note，把所有附魔用 \n 合併 ★★★
-                    if enchant_json_list:
-                        json_data[f"{slot_json_name}_note"] = "\n".join(enchant_json_list)
-                    else:
-                        json_data[f"{slot_json_name}_note"] = ""
-
-                except Exception:
-                    slot_content.append("解析2D01附魔資料失敗")
-
+            # === 2B01 階級 ===
             elif slot_name == '2B01':
                 try:
                     grade = int(slot_bytes[6], 16)
                     grade_name = GRADE_MAP.get(grade, str(grade))
                     slot_content.append(f'裝備階級：{grade_name}')
-                    json_data[f"{slot_json_name}_階級"] = grade_name
+                    json_data[f"{group_name}_階級"] = grade_name
                 except:
-                    slot_content.append('解析2B01裝備階級失敗，檢查slot長度與資料')
+                    slot_content.append('解析2B01失敗')
 
             group_lines.extend(slot_content)
             group_has_data = True
 
-        # group有任何slot要顯示才印出
         if group_has_data:
             print(f'==== {chunk_name} Group {group_number}（{group_name}）====')
             for line in group_lines:
-                if group_number == 2:
-                    weapon_id = equip_id
-                elif group_number == 6:
-                    shield_id = equip_id
                 print(line)
             print()
 
-    # ===== 雙手武器偵測 =====
-
-    if (
-        isinstance(weapon_id, int) and isinstance(shield_id, int)
-        and weapon_id > 0
-        and shield_id > 0
-        and weapon_id == shield_id
-    ):
-        print(f"[警告] 偵測到武器/盾牌欄位相同 (ID: {weapon_id})，可能為雙手武器")
-
-        try:
-            from tkinter import messagebox
-            messagebox.showwarning(
-                "雙手武器偵測",
-                "偵測到武器與盾牌欄位為相同資料，\n"
-                "如果是雙手武器，請將盾牌欄位的武器清空！"
-            )
-        except Exception:
-            pass
+        group_number += 1
+        g = end_idx
 
     print("Done.\n")
+
+
+
 
 def run_rrf_main():
        # 0. 載入 iteminfo
