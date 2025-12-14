@@ -822,11 +822,34 @@ def extract_equip_chunk(filepath, json_data, get_itemname,
         if group_has_data:
             print(f'==== {chunk_name} Group {group_number}（{group_name}）====')
             for line in group_lines:
+                if group_number == 2:
+                    weapon_id = equip_id
+                elif group_number == 6:
+                    shield_id = equip_id
                 print(line)
             print()
 
         group_number += 1
         g = end_idx
+
+    # ===== 雙手武器偵測 =====
+    if (
+        isinstance(weapon_id, int) and isinstance(shield_id, int)
+        and weapon_id > 0
+        and shield_id > 0
+        and weapon_id == shield_id
+    ):
+        print(f"[警告] 偵測到武器/盾牌欄位相同 (ID: {weapon_id})，可能為雙手武器")
+
+        try:
+            from tkinter import messagebox
+            messagebox.showwarning(
+                "雙手武器偵測",
+                "偵測到武器與盾牌欄位為相同資料，\n"
+                "如果是雙手武器，請將盾牌欄位的武器清空！"
+            )
+        except Exception:
+            pass
 
     print("Done.\n")
 

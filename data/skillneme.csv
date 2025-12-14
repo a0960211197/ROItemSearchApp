@@ -1310,7 +1310,7 @@
 5495,SS_ANKOKURYUUAKUMU,暗黑龍 - 噩夢,,,,,0,0,,,,,,,,,,,
 5496,NW_THE_VIGILANTE_AT_NIGHT_GUN_GATLING,夜裡的警惕,,,,,0,0,,,,,,,,,,,
 5497,NW_THE_VIGILANTE_AT_NIGHT_GUN_SHOTGUN,夜裡的警惕,,,,,0,0,,,,,,,,,,,
-6001,DK_DRAGONIC_BREATH,天龍氣息,physical,1,10,((3550+floor(MHP/8)+floor(MSP/4)+total_POW*7)*BaseLv/100)+1,0,-2,0,ceil((3550+floor(MHP/8)+floor(MSP/4)+total_POW*7)*BaseLv/100),,,,,,,,,
+6001,DK_DRAGONIC_BREATH,天龍氣息,physical,1,10,ceil((3550+floor(MHP/8)+floor(MSP/4)+total_POW*7)*BaseLv/100),0,-2,0,ceil((3550+floor(MHP/8)+floor(MSP/4)+total_POW*7)*BaseLv/100),,,,,,,,,
 6002,MT_SPARK_BLASTER,閃光衝擊波,physical,1,10,(600+1400*Sklv+total_POW*7)*BaseLv/100,0,2,,,,,,,,,,,
 6003,MT_TRIPLE_LASER,三連雷射,physical,1,5,(650+1150*Sklv+total_POW*12)*BaseLv/100,0,3,1,,,,,,,,,,
 6004,MT_MIGHTY_SMASH,強力粉碎,physical,,10,(80+240*BaseLv+total_POW*7)*BaseLv/100,0,5,,,,,(100+240*BaseLv+total_POW*10)*BaseLv/100,,5295,,,,
