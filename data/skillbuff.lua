@@ -21,6 +21,11 @@
 		WeaponMasteryATK(temp * 3)
 	end
 }
+
+[248] = {
+	temp = GSklv(248)
+	AddExtParam(1, 109, temp * 200)
+}
 [274] = {
 	temp = GSklv(274)
 	temp_wp = GetWeaponClass(4)

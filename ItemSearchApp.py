@@ -6325,6 +6325,60 @@ class ItemSearchApp(QWidget):
         print("✓ JOB 下拉選單已重新載入")
 
 
+    def refresh_skill_list(self):
+        # 搜尋字（只過濾，不排序）
+        query = ""
+        if hasattr(self, "skill_search_input"):
+            query = self.skill_search_input.text().strip().lower()
+
+        # 目前職業 skill id
+        job_id = self.input_fields["JOB"].currentData()
+        skill_job_id = job_dict.get(job_id, {}).get("id")
+
+        job_skills = []
+        other_skills = []
+
+        # ❗ 關鍵：完全依 all_skill_entries 原始順序走
+        for name, data in all_skill_entries.items():
+            # 搜尋過濾（不改順序）
+            if query:
+                hay = f"{data.get('type','')} {name}".lower()
+                if query not in hay:
+                    continue
+
+            if skill_job_id and data.get("id") == skill_job_id:
+                job_skills.append(name)
+            else:
+                other_skills.append(name)
+
+        # 清空 layout（不刪 checkbox）
+        while self.skill_checkbox_layout.count():
+            item = self.skill_checkbox_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        # ===== 本職技能（原始順序）=====
+        for name in job_skills:
+            self.skill_checkbox_layout.addWidget(self.skill_checkboxes[name])
+
+        # ===== 分隔線 =====
+        if job_skills and other_skills:
+            line = QFrame()
+            line.setFrameShape(QFrame.HLine)
+            line.setFrameShadow(QFrame.Sunken)
+            line.setLineWidth(1)
+            line.setStyleSheet("""
+            QFrame {
+                margin-top: 6px;
+                margin-bottom: 6px;
+            }
+            """)
+            self.skill_checkbox_layout.addWidget(line)
+
+        # ===== 其他技能（原始順序）=====
+        for name in other_skills:
+            self.skill_checkbox_layout.addWidget(self.skill_checkboxes[name])
+
 
     def __init__(self):
         
@@ -6555,6 +6609,32 @@ class ItemSearchApp(QWidget):
                     except:
                         return 0 
                 
+                def fmt_stat(prefix: str, now, maxv, pct,
+                             prefix_w: int = 6,
+                             value_w: int = 9,
+                             pct_w: int = 4) -> str:
+                    """
+                    格式化狀態顯示字串（HP / SP）
+                    全形字寬=2，半形字寬=1
+                    """
+
+                    def visual_length(s: str) -> int:
+                        width = 0
+                        for c in s:
+                            width += 2 if ord(c) > 255 else 1
+                        return width
+
+                    def pad(text: str, total_width: int) -> str:
+                        space_count = total_width - visual_length(text)
+                        return text + " " * max(space_count, 0)
+
+                    return (
+                        pad(prefix, prefix_w)
+                        + pad(str(now), value_w)
+                        + "/ "
+                        + pad(str(maxv), value_w)
+                        + pad(f"{pct}%", pct_w)
+                    )
 
                 def update_hp_sp_slider_display():
                     update_job_4th_hpsp_bonus()
@@ -6584,8 +6664,21 @@ class ItemSearchApp(QWidget):
                     globals()["MHP_NOW"] = int(MHP * hp_pct / 100) if MHP > 0 else 0
                     globals()["MSP_NOW"] = int(MSP * sp_pct / 100) if MSP > 0 else 0
 
-                    self.hp_percent_label.setText(f"HP {hp_pct}%：{MHP_NOW} / {MHP}")
-                    self.sp_percent_label.setText(f"SP {sp_pct}%：{MSP_NOW} / {MSP}")
+                    # self.hp_percent_label.setText(f"HP：{MHP_NOW} / {MHP}  {hp_pct}%")
+                    # self.sp_percent_label.setText(f"SP：{MSP_NOW} / {MSP}  {sp_pct}%")
+                    self.hp_percent_label.setText(fmt_stat("HP：", MHP_NOW, MHP, hp_pct))
+                    self.sp_percent_label.setText(fmt_stat("SP：", MSP_NOW, MSP, sp_pct))
+
+                    # self.hp_percent_label.setText(hp_text)
+                    # self.sp_percent_label.setText(sp_text)
+                    self.hp_percent_label.setStyleSheet(
+                        "font-family: Consolas, Menlo, monospace;"
+                        "font-size: 18px;"
+                    )
+                    self.sp_percent_label.setStyleSheet(
+                        "font-family: Consolas, Menlo, monospace;"
+                        "font-size: 18px;"
+                    )
 
                     
                 def jobsphp_display():
@@ -6600,6 +6693,8 @@ class ItemSearchApp(QWidget):
                 self.input_fields["MHP"].textChanged.connect(update_hp_sp_slider_display)
                 self.input_fields["MSP"].textChanged.connect(update_hp_sp_slider_display)
                 self.input_fields["JOB"].currentIndexChanged.connect(update_hp_sp_slider_display)
+                
+
                 self.input_fields["BaseLv"].textChanged.connect(update_hp_sp_slider_display)
 
 
@@ -7076,7 +7171,6 @@ class ItemSearchApp(QWidget):
         for name, data in all_skill_entries.items():
             checkbox = QCheckBox(f"{data['type']} {name}")
             self.skill_checkboxes[name] = checkbox
-            self.skill_checkbox_layout.addWidget(checkbox)
 
             checkbox.stateChanged.connect(self.clear_global_state)
             checkbox.stateChanged.connect(self.trigger_total_effect_update)
@@ -7084,16 +7178,18 @@ class ItemSearchApp(QWidget):
             # 判斷此技能是否有 exclusive 群組
             if "exclusive" in data:
                 group = data["exclusive"]
-
-                if group not in self.exclusive_groups:
-                    self.exclusive_groups[group] = []
-
-                self.exclusive_groups[group].append(checkbox)
+                self.exclusive_groups.setdefault(group, []).append(checkbox)
 
                 # 連接 "可取消" 的互斥控制函數
-                checkbox.toggled.connect(lambda checked, c=checkbox, g=group:
-                                         self.handle_exclusive_toggle(c, g, checked))
+                checkbox.toggled.connect(
+                    lambda checked, c=checkbox, g=group: self.handle_exclusive_toggle(c, g, checked)
+                )
 
+
+        # ✅ 建完後，用排序/搜尋規則把 checkbox 加到 layout
+        self.refresh_skill_list()
+
+        self.input_fields["JOB"].currentIndexChanged.connect(self.refresh_skill_list)#註冊下拉職業清單依照職業排序
 
             
 
@@ -8222,6 +8318,7 @@ class ItemSearchApp(QWidget):
             self.display_all_effects()
             self.update_dex_int_half_note()
             self.jobsphp_display()
+            self.refresh_skill_list()
             self.replace_custom_calc_content()
             #QMessageBox.information(self, "完成", f"已載入：{file_path}")
         except Exception as e:
@@ -8282,6 +8379,7 @@ class ItemSearchApp(QWidget):
             self.replace_custom_calc_content()
             self.update_dex_int_half_note()
             self.jobsphp_display()
+            self.refresh_skill_list()
 
 
 
