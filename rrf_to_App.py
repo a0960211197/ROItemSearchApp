@@ -172,11 +172,16 @@ for m in desc_pat.finditer(addopt_lua):
     desc = m.group(2)
     key_to_desc[key] = desc
 
-with open("data/EnchantName.lua", "r", encoding="utf-8") as f:
-    enchant_lua = f.read()
+try:
+    with open("data/EnchantName.lua", "r", encoding="utf-8") as f:
+        enchant_lua = f.read()
+except FileNotFoundError:
+    # 找不到檔案時，使用空的硬編碼
+    enchant_lua = ""
 
 key_to_jsonfmt = {}
 json_pat = re.compile(r'\[EnumVAR\.([A-Z0-9_]+)\[1\]\]\s*=\s*"([^"]+)"')
+
 for m in json_pat.finditer(enchant_lua):
     key = m.group(1)
     fmt = m.group(2)

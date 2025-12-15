@@ -6190,6 +6190,7 @@ class ItemSearchApp(QWidget):
         miss_skillbuff = not os.path.exists(skillbuff_path)
         miss_skill_entries = not os.path.exists(skill_entries_path)
         miss_job_dict = not os.path.exists(job_dict_path)
+        miss_EnchantName = not os.path.exists(EnchantName_path)
         
 
 
