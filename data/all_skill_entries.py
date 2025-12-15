@@ -47,10 +47,18 @@ all_skill_entries = {#範例[    "": {"type": "技能/料理","code":["",""]},
     "法師符": {"id": "SL","type": "技能","code":["AddExtParam(1, 243, 10)"]},
     "精靈靈魂": {"id": "SL","type": "技能","code":["AddExtParam(1, 200, 50)"]},
     "天地神靈": {"id": "SL","type": "技能","code":["AddMeleeAttackDamage(1, 25)","AddRangeAttackDamage(1, 25)","AddSkillMDamage(10, 25)"]},
+    "四方五行的保佑": {"id": "SL","type": "技能","code":["AddExtParam(1, 243, 20)"]},
     #風鷹
+    #"心神凝聚": {"id": "RA","type": "技能","code":["",""]},
+    #目前知道的是agi跟dex只吃角色基本素質+job加成+裝備基礎(不含精煉給的)+被動技能常駐，
+    #料理、卡片、附魔、詞條類、非常駐的技能都不算。
+    #但是時光鞋的附魔觸發有加dex的就有算?這樣要怎麼取值?
+    #基礎裝備取值的想法是直接再20個裝備位再計算一次，但不給精煉跟階級，這樣就會取得裝備基礎，常駐部分從skillbuff取得應該是沒什麼問題。
+    #觸發類的要另外給一個位置輸入再取值?
+    #有觸發類的直接給一個觸發類物品清單，裝備物品時檢查該物品會觸發什麼能力，然後用勾選方式?
+    "狙殺瞄準": {"id": "RA","type": "技能","code":["AddExtParam(1, 207, 20)","AddExtParam(1, 52, 10)","AddExtParam(1, 49, 30)"]},
     "精英狙擊": {"id": "RA","type": "技能","code":["AddRangeAttackDamage(1, 350)"],"exclusive": "sniper_group"},
     "憤怒暴風": {"id": "RA","type": "技能","code":["AddRangeAttackDamage(1, 350)","AddDamage_SKID(1, 5334, 20)"],"exclusive": "sniper_group"},
-    "狙殺瞄準": {"id": "RA","type": "技能","code":["AddExtParam(1, 207, 20)","AddExtParam(1, 52, 10)","AddExtParam(1, 49, 30)"]},
     #妖術
     "召喚元素:阿爾多雷 火": {"id": "SO","type": "技能","code":["AddDamage_SKID(1, 5372, 30)","AddSkillMDamage(3, 10)"],"exclusive": "4ht_elves"},
     "召喚元素:迪盧比奧 水": {"id": "SO","type": "技能","code":["AddDamage_SKID(1, 5369, 30)","AddSkillMDamage(1, 10)"],"exclusive": "4ht_elves"},

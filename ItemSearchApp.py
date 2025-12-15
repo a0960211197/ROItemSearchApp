@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.17-251213"
+Version = "v0.1.18-251216"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -4063,15 +4063,10 @@ class ItemSearchApp(QWidget):
             self.mres_label.setVisible(False)
             self.mres_input.setVisible(False)
             result.append(f"=========================以下各增傷數值===========================")
-            if weapon_class in (11,13,14,17,18,19,20,21):#DEX系
-                result.append(f"{pad_label('前ATK (DEX系):')}{FATK:,}")
-            else:#STR系
-                result.append(f"{pad_label('前ATK(STR系):')}{NATK:,}")
-            result.append(f"{pad_label('武器ATK:')}{ATK_Mweapon:,}")
-            if skill_Rangedamage == 1:#DEX系
-                result.append(f"{pad_label('遠傷:')}{round(RangeAttackDamage)}%")
-            else:#STR系
-                result.append(f"{pad_label('近傷:')}{round(MeleeAttackDamage)}%")
+
+            result.append(f"{pad_label('遠傷:')}{round(RangeAttackDamage)}%")
+            #屬性耐性 龍之氣息 預設屬性火，可使用盧恩石轉屬，轉屬後一樣看火屬耐性(屬性*火耐性)
+            #屬性耐性 龍之氣息-水 預設屬性水，可使用盧恩石轉屬，轉屬後一樣看水屬耐性(屬性*水耐性)
             result.append(f"{pad_label('技能倍率:')}{results[0]['skill_result']}%")
             result.append(f"{pad_label('屬性倍率:')}{get_damage_multiplier(User_attack_element, target_element, target_element_lv)}%")
 
@@ -8430,18 +8425,29 @@ class ItemSearchApp(QWidget):
 
 
     def update_combobox(self, initial=False):
-        keyword = self.search_input.text().strip()
+        keyword_text = self.search_input.text().strip()
         self.result_box.clear()
 
-        # 只保留有裝備效果資料的項目，並根據關鍵字過濾
-        self.filtered_items = {
-            k: v for k, v in self.parsed_items.items()
-            if k in self.equipment_data and (
-                keyword in str(k) or
-                keyword in v['name'] or
-                any(keyword in line for line in v['description'])
-            )
-        }
+        # 以空白分割關鍵字（自動忽略多餘空白）
+        keywords = keyword_text.split()
+
+        self.filtered_items = {}
+
+        for k, v in self.parsed_items.items():
+            # 只保留有裝備效果資料的項目
+            if k not in self.equipment_data:
+                continue
+
+            # 將可搜尋內容合併成一個字串
+            searchable_text = " ".join([
+                str(k),
+                v['name'],
+                " ".join(v['description'])
+            ])
+
+            # 所有關鍵字都必須命中
+            if all(keyword in searchable_text for keyword in keywords):
+                self.filtered_items[k] = v
 
         for item_id in sorted(self.filtered_items):
             item = self.filtered_items[item_id]

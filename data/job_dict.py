@@ -27,7 +27,7 @@ job_dict = {
     4306: {"id": "RE","id_jobneme": "Night_Watch","id_jobneme_OL": "Gunslinger/Rebellion","selectskill": "RL/NW", "name": "夜行者", "TJobMaxPoint": [3,8,6,8,11,7,11,6,5,0,10,5],"point":"69/69/54","MHP_MSP":True},
     4304: {"id": "OB","id_jobneme": "Shinkiro","id_jobneme_OL": "Ninja/Kagerou","selectskill": "NJ/KO/SS", "name": "流浪忍者", "TJobMaxPoint": [10,12,6,4,9,3,10,10,4,0,6,8],"point":"69/69/54","MHP_MSP":True},
     4305: {"id": "KO","id_jobneme": "Shiranui","id_jobneme_OL": "Ninja/Oboro","selectskill": "NJ/KO/SS", "name": "疾風忍者", "TJobMaxPoint": [4,8,5,10,10,3,4,8,10,3,6,7],"point":"69/69/54","MHP_MSP":True},
-    4303: {"id": "SL","id_jobneme": "Soul_Ascetic","id_jobneme_OL": "Taekwon/Linker/Soul_Reaper","selectskill": "SP/SOA", "name": "契靈士", "TJobMaxPoint": [3,7,7,11,13,2,0,8,7,16,7,3],"point":"49/49/69/54","MHP_MSP":True},
+    4303: {"id": "SL","id_jobneme": "Soul_Ascetic","id_jobneme_OL": "Taekwon/Linker/Soul_Reaper","selectskill": "SP/SOA", "name": "契靈士", "TJobMaxPoint": [3,7,7,11,13,2,0,8,7,13,7,3],"point":"49/49/69/54","MHP_MSP":True},
     4302: {"id": "SE","id_jobneme": "Sky_Emperor","id_jobneme_OL": "Taekwon/Star/Star_Emperor","selectskill": "TK/SJ/SKE", "name": "天帝", "TJobMaxPoint": [12,10,6,3,9,3,12,10,2,0,6,7],"point":"49/49/69/54","MHP_MSP":True},
 }
 # 4轉上位職業HP/SP數值表 #巴哈 [~小月鈴~]文章 "二次上位擴充職基本HP/SP資料" & "4轉職基本HP/SP資料"

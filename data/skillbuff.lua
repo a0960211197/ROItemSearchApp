@@ -106,14 +106,27 @@
 	temp = GSklv(5365)
 	temp_wp = GetWeaponClass(4)
 	if temp_wp == 15 then
-		AddSkillMDamage(1, temp * 1.6)
-		AddSkillMDamage(2, temp * 1.6)
-		AddSkillMDamage(3, temp * 1.6)
-		AddSkillMDamage(4, temp * 1.6)
-		AddSkillMDamage(5, temp * 1.6)
+		AddSkillMDamage(1, 1)
+		AddSkillMDamage(2, 1)
+		AddSkillMDamage(3, 1)
+		AddSkillMDamage(4, 1)
+		AddSkillMDamage(5, 1)
+		AddSkillMDamage(1, temp * 1.4)
+		AddSkillMDamage(2, temp * 1.4)
+		AddSkillMDamage(3, temp * 1.4)
+		AddSkillMDamage(4, temp * 1.4)
+		AddSkillMDamage(5, temp * 1.4)
 	end
 }
 
+[5416] = {
+	temp = GSklv(5416)
+	AddExtParam(1, 243, temp)
+}
+[5417] = {
+	temp = GSklv(5417)
+	AddExtParam(1, 237, temp)
+}
 [5450] = {
 	temp = GSklv(5450)
 	AddExtParam(1, 243, temp)
