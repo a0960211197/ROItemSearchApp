@@ -4900,6 +4900,7 @@ class ItemSearchApp(QWidget):
             ("skillbuff.lua", False),
             ("all_skill_entries.py", False),
             ("job_dict.py", False),
+            ("EnchantName.lua", False),
         ]
 
         dialog = FileSelectionDialog(files_to_delete, data_folder, self)
@@ -5876,7 +5877,7 @@ class ItemSearchApp(QWidget):
         ONLINE_skillbuff_URL = "https://z2911902.github.io/ROItemSearchApp/data/skillbuff.lua"
         ONLINE_skill_entries_URL = "https://z2911902.github.io/ROItemSearchApp/data/all_skill_entries.py"
         ONLINE_job_dict_URL = "https://z2911902.github.io/ROItemSearchApp/data/job_dict.py"
-        
+        ONLINE_EnchantName_URL = "https://z2911902.github.io/ROItemSearchApp/data/EnchantName.lua"
 
         # === 路徑設定 ===
         if getattr(sys, 'frozen', False):
@@ -5897,6 +5898,7 @@ class ItemSearchApp(QWidget):
         skillbuff_path  = os.path.join(data_dir, "skillbuff.lua")
         skill_entries_path  = os.path.join(data_dir, "all_skill_entries.py")
         job_dict_path  = os.path.join(data_dir, "job_dict.py")
+        EnchantName_path  = os.path.join(data_dir, "EnchantName.lua")
         
 
         # === 內嵌小工具 ===
@@ -6212,6 +6214,7 @@ class ItemSearchApp(QWidget):
             if miss_skillbuff: targets.append((ONLINE_skillbuff_URL,    skillbuff_path))
             if miss_skill_entries: targets.append((ONLINE_skill_entries_URL,    skill_entries_path))
             if miss_job_dict: targets.append((ONLINE_job_dict_URL,    job_dict_path))
+            if miss_EnchantName: targets.append((ONLINE_EnchantName_URL,    EnchantName_path))
             
             if targets:
                 _try_online_for(targets)
@@ -6233,6 +6236,7 @@ class ItemSearchApp(QWidget):
                 skillbuff_path,
                 skill_entries_path,
                 job_dict_path,
+                EnchantName_path,
             ]
             if not all(os.path.exists(path) for path in required_files):
                 print("❌ online_only 模式：仍有檔案缺失，停止")
