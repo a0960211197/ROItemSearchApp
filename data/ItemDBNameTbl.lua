@@ -4763,7 +4763,23 @@ ItemDBNameTbl = {
   SunBook_Furious = 540087,
   MoonBook_Furious = 540088,
   FuriousCirclet_SKE = 400610,
-  FuriousCirclet_CD = 400609
+  FuriousCirclet_CD = 400609,
+  Demonius_Furious = 510150,
+  Demonsword_Furious = 510151,
+  MetalVilolin_Furious = 570072,
+  MetalWhip_Furious = 580072,
+  Harp_Furious = 570073,
+  Whip_Furious = 580073,
+  FuriousCirclet_TR = 400673,
+  FuriousCirclet_ABC = 400629,
+  Dimension_Ring_IQ = 490864,
+  Dimension_Ring_CD = 490865,
+  Celine_Brooch_LT = 490866,
+  Celine_Brooch = 28513,
+  Cel_Design_Pendant_LT = 490867,
+  Cel_Design_Pendant = 490482,
+  Rotten_Rope = 7218,
+  Snow_Flower = 12739
 }
 
 function ItemDB_To_ItemID(in_ItemDB)
