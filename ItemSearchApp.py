@@ -1,5 +1,5 @@
 #部分資料取自ROCalculator,搜尋 ROCalculator 可以知道哪些有使用
-Version = "v0.1.18-251216"
+Version = "v0.1.19-251223"
 
 import sys, builtins, time
 from PySide6.QtCore import QThread, Signal, Qt, QMetaObject, QTimer
@@ -619,7 +619,8 @@ TSTATUS_POINT_COSTS = [#取自ROCalculator(特性數值點術
     83,86,89,92,95,102,105,108,111,114,
     121,124,127,130,133,140,143,146,149,152,
     159,162,165,168,171,178,181,184,187,190,
-    197,200,203,206,209,216,219,222,225,235
+    197,200,203,206,209,216,219,222,225,228,
+    235
 ]
 
 
@@ -1807,6 +1808,12 @@ def parse_lua_effects_with_variables(
                 lambda m: str(enabled_skill_levels.get(int(m.group(1)), 0)),
                 expr
             )
+            
+            variables.update({#給心神凝聚處理的
+                "skill_focus_AGI": skill_focus_AGI,
+                "skill_focus_DEX": skill_focus_DEX,
+            })
+
             # ✅ 改用 eval + variables 做上下文，不再手動替換
             try:
                 value = int(eval(expr, {"__builtins__": None}, variables))
@@ -2038,8 +2045,8 @@ def parse_lua_effects_with_variables(
             continue
 
 
-
-
+        register_function("就說通用了你還產生！", "----以上通用分隔線----", [])
+        register_function("就說以下魔法了你還產生！", "--以下魔法增減分隔線--", [])
 #==========以上通用變數
 #==========以下魔法判斷        
         # Add/Sub MDamage_Size（體型魔法）
@@ -2196,11 +2203,21 @@ def parse_lua_effects_with_variables(
             value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
             results.append(f"特定魔物魔法增傷 +{value_expr}%")
             continue
-            
+        # 特定魔物魔法增傷MonsterMAtkPercent(value)
+        register_function("SubMonsterMAtkPercent", "減少特定魔物魔法傷害", [
+            {"name": "數值%", "type": "value"}
+        ])
+        mon_m_atk = re.match(r"SubMonsterMAtkPercent\(\s*(.+)\s*\)", line)
+        if mon_m_atk and condition_met:
+            value_expr = mon_m_atk.group(1)
+            value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
+            results.append(f"特定魔物魔法增傷 -{value_expr}%")
+            continue
             
 #===========以上魔法判斷
 #===========以下物理判斷
-
+        register_function("就說以上魔法了你還產生！", "--以上魔法增減分隔線--", [])
+        register_function("就說以下物理了你還產生！", "--以下物理增減分隔線--", [])
         #修煉ATK WeaponMasteryATK(value)
         MasteryATK_dmg = re.match(r"WeaponMasteryATK\(\s*(.+?)\)", line)
         if MasteryATK_dmg and condition_met:
@@ -2268,7 +2285,7 @@ def parse_lua_effects_with_variables(
 
         # SubDamage_CRI(1, value)
         
-        # register_function("SubDamage_CRI", "爆擊傷害", [
+        # register_function("SubDamage_CRI", "減少爆擊傷害", [
         #     {"name": "目標", "map": "unit_map"},
         #     {"name": "數值%", "type": "value"}
         # ])
@@ -2417,7 +2434,16 @@ def parse_lua_effects_with_variables(
             value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
             results.append(f"特定魔物物理增傷 +{value_expr}%")
             continue
-
+        # 特定魔物物理減傷MonsterAtkPercent(value)
+        register_function("SubMonsterAtkPercent", "減少特定魔物物理傷害", [
+            {"name": "數值%", "type": "value"}
+        ])       
+        mon_atk = re.match(r"SubMonsterAtkPercent\(\s*(.+)\s*\)", line)
+        if mon_atk and condition_met:
+            value_expr = mon_atk.group(1)
+            value_expr = safe_eval_expr(value_expr, variables, get_values, refine_inputs, grade)
+            results.append(f"特定魔物物理增傷 -{value_expr}%")
+            continue
 #==============以上物理判斷
 
 #待處理判斷
@@ -2635,7 +2661,7 @@ def resolve_name_conflicts(parsed_items, equipment_blocks):
 def calculate_stat_points(level: int, job_id: int) -> int:
     # 4302 ~ 4308 = 0，其餘 = 100
     if 4302 <= job_id <= 4308:
-        pt = 0
+        pt = 48
     else:
         pt = 100
 
@@ -2902,6 +2928,7 @@ class ItemSearchApp(QWidget):
         job_bonus = job_dict.get(job_id, {}).get("TJobMaxPoint", [])
         globals()["job_idcore"] = job_dict[job_id]["id"]#取得職業ID代號
         raw_effects = getattr(self, "effect_dict_raw", {})
+        base_raw_effects = getattr(self, "base_effect_dict_raw", {})
 
         for i, stat in enumerate(stat_names):
             try:
@@ -2910,15 +2937,20 @@ class ItemSearchApp(QWidget):
                 base = 0
             job = job_bonus[i] if i < len(job_bonus) else 0
             equip = sum(val for val, _ in raw_effects.get((stat, ""), []))
+            base_equip = sum(val for val, _ in base_raw_effects.get((stat, ""), []))
             total = base + job + equip
 
             # 🔧 自動產生變數：base_STR, job_STR, equip_STR, total_STR
             globals()[f"base_{stat}"] = base
             globals()[f"job_{stat}"] = job
             globals()[f"equip_{stat}"] = equip
+            globals()[f"base_equip_{stat}"] = base_equip
             globals()[f"total_{stat}"] = total
 
-
+            #print(f"base_equip_{stat} : {base_equip}")
+        #心神凝聚計算
+        globals()["skill_focus_AGI"] = base_equip_AGI + base_AGI + job_AGI
+        globals()["skill_focus_DEX"] = base_equip_DEX + base_DEX + job_DEX
         #======================取所有增傷資料到變數區=====================
         effect_dict = getattr(self, "effect_dict_raw", {})
         globals()["HP"] = sum(val for val, _ in effect_dict.get(("MHP", ""), []))
@@ -5038,7 +5070,11 @@ class ItemSearchApp(QWidget):
             self._update_stat_point_callback()
 
 
+
         refine_inputs = {}
+        # 先在外面準備一份「全 0」的 refine_inputs
+        refine_inputs_base = {info["slot"]: 0 for info in self.refine_parts.values()}
+
         for label, info in self.refine_parts.items():
             slot_id = info["slot"]
             try:
@@ -5047,6 +5083,7 @@ class ItemSearchApp(QWidget):
                 refine_inputs[slot_id] = 0
 
         effect_dict = {}
+        base_effect_dict = {} 
 
         for part in self.refine_parts.values():#先清除部位 to itemid的對應
             slot_id = part["slot"]
@@ -5057,6 +5094,7 @@ class ItemSearchApp(QWidget):
             equip_name = ui["equip"].text().strip()
             if equip_name:
                 source_label = f"{part_name}：{equip_name}"  # or 卡片名稱 or 套裝來源
+                source_label_base = f"{part_name}：{equip_name}（基礎）"
                 for item_id, item in self.parsed_items.items():
                     if item["name"] == equip_name and item_id in self.equipment_data:
                         block_text = self.equipment_data[item_id]
@@ -5091,6 +5129,31 @@ class ItemSearchApp(QWidget):
                                 # 建立效果來源清單
                                 effect_dict.setdefault((key, unit), []).append((value, source_label))
 
+
+                        # --- 第二次：基礎能力（grade=0 + refine_inputs 全 0） ---
+                        base_effects = parse_lua_effects_with_variables(
+                            block_text,
+                            refine_inputs_base,  # <- 全 0
+                            get_values,
+                            0,                   # <- grade 強制 0
+                            unit_map,
+                            size_map,
+                            effect_map,
+                            hide_unrecognized=self.hide_unrecognized_checkbox.isChecked(),
+                            hide_physical=self.hide_physical_checkbox.isChecked(),
+                            hide_magical=self.hide_magical_checkbox.isChecked(),
+                            current_location_slot=slot_id
+                        )
+
+                        base_filtered = self.filter_effects(base_effects)
+                        for line in base_filtered:
+                            if not line.strip():
+                                continue
+                            parsed = self.try_extract_effect(line)
+                            if parsed:
+                                key, value, unit = parsed
+                                key = self.normalize_effect_key(key)
+                                base_effect_dict.setdefault((key, unit), []).append((value, source_label_base))
 
             # ▶️ 卡片欄處理（最多4張）
             for i, card_input in enumerate(ui["cards"]):
@@ -5319,9 +5382,14 @@ class ItemSearchApp(QWidget):
         skillbuff_effect_dict = self.apply_skill_buffs_into_effect_dict(skillbuff_path, enabled_skill_levels, refine_inputs, get_values, grade)
         for key, entries in skillbuff_effect_dict.items():
             if key in effect_dict:
-                effect_dict[key].extend(entries)
+                effect_dict[key].extend(entries)                
             else:
-                effect_dict[key] = entries.copy()
+                effect_dict[key] = entries.copy()                
+        for key, entries in skillbuff_effect_dict.items():
+            if key in base_effect_dict:                
+                base_effect_dict[key].extend(entries)
+            else:                
+                base_effect_dict[key] = entries.copy()
 
         
         # ✅ 排序合併結果
@@ -5382,6 +5450,7 @@ class ItemSearchApp(QWidget):
         self.safe_update_textbox(self.combo_effect_text, "\n".join(combo_effects_all))
         # 不論有沒有套裝效果、裝備或技能，一律記錄 effect_dict
         self.effect_dict_raw = effect_dict
+        self.base_effect_dict_raw = base_effect_dict#只紀錄裝備基礎能力不含精煉套裝
         self.update_stat_bonus_display()
         #運算
 
@@ -6346,7 +6415,7 @@ class ItemSearchApp(QWidget):
                 if query not in hay:
                     continue
 
-            if skill_job_id and data.get("id") == skill_job_id:
+            if skill_job_id in data.get("id", []):
                 job_skills.append(name)
             else:
                 other_skills.append(name)

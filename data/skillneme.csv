@@ -662,7 +662,7 @@
 2210,WL_DRAINLIFE,吸星大法,,,,,0,0,,,,,,,,,,,
 2211,WL_CRIMSONROCK,碧血隕石,magic,,5,(700+Sklv*600)*BaseLv/100,3,-7,,,,,,,,,,,
 2212,WL_HELLINFERNO,地獄火焰,magic,,5,(Sklv*400)*BaseLv/100,3,1,,(Sklv*600)*BaseLv/100,7,-3,,,,,,,
-2213,WL_COMET,毀滅慧星,magic,,5,(3000+Sklv*600)*BaseLv/100,0,-10,,,,,,,,,,,
+2213,WL_COMET,毀滅慧星,magic,0,5,(3000+Sklv*600)*BaseLv/100,0,-10,,,,,,,,,,,
 2214,WL_CHAINLIGHTNING,連鎖電擊,magic,,5,(500+Sklv*100)*BaseLv/100,4,4,,,,,,,,,4,800,-100
 2215,WL_CHAINLIGHTNING_ATK,連鎖電擊,magic,,,(500+Sklv*100)*BaseLv/100,4,4,,,,,,,,,4,800,-100
 2216,WL_EARTHSTRAIN,地牛翻身,magic,,5,(1000+Sklv*600)*BaseLv/100,2,-10,,,,,,,,,,,
@@ -1054,7 +1054,7 @@
 5227,AG_TORNADO_STORM,龍捲風暴,magic,,5,(100+Sklv*760+total_SPL*5)*BaseLv/100,4,10,,,,,,,,,,,
 5228,AG_TWOHANDSTAFF,雙手杖使用熟練度,,,,,0,0,,,,,,,,,,,
 5229,AG_FLORAL_FLARE_ROAD,焰火之徑,magic,,5,(50+Sklv*740+total_SPL*5)*BaseLv/100,3,5,,,,,,,,,,,
-5230,AG_ASTRAL_STRIKE,星際突襲,,,,,0,0,,,,,,,,,,,
+5230,AG_ASTRAL_STRIKE,星際突襲,magic,0,10,(300+Sklv*1800+total_SPL*3)*BaseLv/100,0,12,,,,,(400+Sklv*2100+total_SPL*3)*BaseLv/100,"1,9",,,,,
 5232,AG_CLIMAX,魔力巔峰,,,,,0,0,,,,,,,,,,,
 5233,AG_ROCK_DOWN,巨石降臨,magic,,5,(Sklv*1550+total_SPL*5)*BaseLv/100,2,-5,,,,,(Sklv*1850+total_SPL*5)*BaseLv/100,,5232,,,,
 5234,AG_STORM_CANNON,暴風加農砲,magic,,5,(Sklv*1550+total_SPL*5)*BaseLv/100,4,-2,,,,,(Sklv*1850+total_SPL*5)*BaseLv/100,,,,,,
