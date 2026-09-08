@@ -5284,7 +5284,18 @@ ItemDBNameTbl = {
   SuNovice_Top = 312403,
   SuNovice_Middle = 312404,
   SuNovice_Bottom = 312405,
-  SuNovice_Robe = 312402
+  SuNovice_Robe = 312402,
+  Kyel_hyre_Ulti_TW = 480341,
+  Kyel_hyre_Ulti_LT = 480939,
+  ["2026_ROS_Shine_Ring_TW"] = 480938,
+  Time_Gap_SHC_Dagger1 = 510165,
+  Time_Gap_SHC_Dagger2 = 510166,
+  Time_Gap_ABC_Dagger = 28785,
+  S_ABC_AF_Earring = 24983,
+  S_ABC_AF_Pendant = 24984,
+  S_ABC_FA_Armor = 24985,
+  S_ABC_FA_Shoes = 24986,
+  Pocket_Watch = 7513
 }
 
 function ItemDB_To_ItemID(in_ItemDB)
