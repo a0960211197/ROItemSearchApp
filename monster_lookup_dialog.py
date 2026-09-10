@@ -1,4 +1,4 @@
-# monster_lookup_dialog.py
+﻿# monster_lookup_dialog.py
 import json
 from pathlib import Path
 # === STAGE 18 DESKTOP SHARED MONSTER CORE ===
@@ -49,7 +49,7 @@ class MonsterFetchWorker(QObject):
     finished = Signal(dict)
     error = Signal(str)
 
-    def __init__(self, monster_id: int, api_key: str, language="zh-TW"):
+    def __init__(self, monster_id: int, api_key: str, language="cn"):
         super().__init__()
         self.monster_id = monster_id
         self.api_key = api_key

@@ -8,7 +8,7 @@ Stage 3 為 Lua 裝備 parser 加入明確的 dependency container，並讓遷�
 from __future__ import annotations
 
 # 手動維護的共用核心版本；每次 ro_core.py 計算邏輯變更時都要遞增版本。
-RO_CORE_VERSION = "v0.21.82"
+RO_CORE_VERSION = "v0.21.84"
 
 from dataclasses import dataclass, field
 import ast
@@ -8151,8 +8151,35 @@ def stage18_monster_cache_path(data_dir, monster_id):
     return Path(data_dir) / "monster" / f"{int(monster_id)}.json"
 
 
+def stage18_is_legacy_monster_payload(data):
+    """判斷是否為舊版 Divine-Pride 怪物 payload（主要資料包在 stats 內）。"""
+    return isinstance(data, dict) and isinstance(data.get("stats"), dict)
+
+
+def stage18_is_current_monster_payload(data):
+    """判斷是否為目前 Divine-Pride 的平面怪物 payload。
+
+    舊版 ``stats`` 結構一律不是可直接使用的快取；新版至少需具備
+    怪物 ID、等級，以及新版的屬性/體型/種族欄位，避免損壞 JSON 被誤當成有效快取。
+    """
+    if not isinstance(data, dict) or stage18_is_legacy_monster_payload(data):
+        return False
+    if not any(key in data for key in ("id", "monsterId", "monster_id")):
+        return False
+    return (
+        "level" in data
+        and "element" in data
+        and "size" in data
+        and "race" in data
+    )
+
+
 def stage18_load_cached_monster_payload(data_dir, monster_id):
-    """回傳原始 Divine-Pride 快取 payload；不存在則回傳 None。"""
+    """回傳可直接使用的新格式怪物快取；舊格式/損壞/不存在都回傳 None。
+
+    舊格式快取刻意視為 cache miss，讓呼叫端重新向 Divine-Pride API 取得
+    最新格式並覆寫快取。Core 不顯示舊版提示，只用 ``None`` 表示無可用快取。
+    """
     import json
 
     path = stage18_monster_cache_path(data_dir, monster_id)
@@ -8163,53 +8190,130 @@ def stage18_load_cached_monster_payload(data_dir, monster_id):
         data = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
-    return data if isinstance(data, dict) else None
+
+    if not stage18_is_current_monster_payload(data):
+        return None
+    return data
 
 
 def stage18_parse_monster_payload(data):
-    """完全依照 Desktop 方式正規化 Divine-Pride 怪物 JSON。"""
+    """正規化 Divine-Pride 怪物 JSON，同時相容舊 stats 格式與新版平面格式。"""
     if not isinstance(data, dict):
         raise ValueError("monster payload 必須是 dict")
 
-    stats = data.get("stats", {})
+    legacy = stage18_is_legacy_monster_payload(data)
+    stats = data.get("stats", {}) if legacy else data
     if not isinstance(stats, dict):
         stats = {}
-
-    attack_data = stats.get("attack") or {}
-    if not isinstance(attack_data, dict):
-        attack_data = {}
-
-    mattack_data = stats.get("magicAttack") or {}
-    if not isinstance(mattack_data, dict):
-        mattack_data = {}
 
     name = str(data.get("name") or data.get("dbname", "") or "")
 
     def as_int(value, default=0):
         try:
+            if isinstance(value, str):
+                value = value.strip()
+                # API 偶爾會用千分位字串表示整數，例如 32.536 / 48,488。
+                import re
+                if re.fullmatch(r"[+-]?\d{1,3}(?:[.,]\d{3})+", value):
+                    value = value.replace(".", "").replace(",", "")
             return int(value or 0)
         except (TypeError, ValueError):
             return int(default)
+
+    def range_max(value):
+        """解析新版 '32.536 - 48.488' 或一般數值，回傳區間最大值。"""
+        if isinstance(value, dict):
+            return as_int(value.get("maximum"))
+        if isinstance(value, (int, float)):
+            return int(value)
+        text = str(value or "").strip()
+        if not text:
+            return 0
+        import re
+        parts = re.split(r"\s*(?:-|~|～|—)\s*", text)
+        candidate = parts[-1] if parts else text
+        return as_int(candidate)
+
+    def mapped_id(value, aliases, default=0):
+        if isinstance(value, (int, float)):
+            return int(value)
+        key = str(value or "").strip().lower()
+        if not key:
+            return int(default)
+        return int(aliases.get(key, default))
+
+    element_aliases = {
+        "neutral": 0, "none": 0, "formless": 0,
+        "water": 1, "earth": 2, "fire": 3, "wind": 4,
+        "poison": 5, "holy": 6, "dark": 7, "shadow": 7,
+        "ghost": 8, "undead": 9,
+    }
+    size_aliases = {"small": 0, "medium": 1, "large": 2}
+    race_aliases = {
+        "formless": 0,
+        "undead": 1,
+        "brute": 2, "animal": 2,
+        "plant": 3,
+        "insect": 4,
+        "fish": 5, "fish/shell": 5,
+        "demon": 6,
+        "demihuman": 7, "demi-human": 7, "human": 7,
+        "angel": 8,
+        "dragon": 9,
+        "player human": 10, "player-human": 10,
+        "player doram": 11, "doram": 11,
+    }
+    class_aliases = {
+        "normal": 0, "regular": 0,
+        "boss": 1, "mvp": 1,
+        "guardian": 2,
+    }
 
     level = as_int(stats.get("level"))
     strength = as_int(stats.get("str"))
     vit = as_int(stats.get("vit"))
     intelligence = as_int(stats.get("int"))
 
-    def_after = as_int(stats.get("defense"))
-    mdef_after = as_int(stats.get("magicDefense"))
+    if legacy:
+        def_after = as_int(stats.get("defense"))
+        mdef_after = as_int(stats.get("magicDefense"))
+        element_id, element_lv = stage18_decode_monster_element(stats.get("element", 0))
+        size_id = as_int(stats.get("scale"))
+        race_id = as_int(stats.get("race"))
+        class_id = as_int(stats.get("class"))
+        combat_atk = range_max(stats.get("attack"))
+        combat_matk = range_max(stats.get("magicAttack"))
+        res = as_int(stats.get("res"))
+        mres = as_int(stats.get("mres"))
+    else:
+        def_after = as_int(stats.get("def"))
+        mdef_after = as_int(stats.get("mDef"))
+
+        element_text = str(stats.get("element") or "").strip()
+        element_name = element_text
+        parsed_element_lv = as_int(stats.get("elementLevel"), 1)
+        if element_text:
+            import re
+            m = re.match(r"^(.+?)\s+(\d+)$", element_text)
+            if m:
+                element_name = m.group(1).strip()
+                if not stats.get("elementLevel"):
+                    parsed_element_lv = as_int(m.group(2), 1)
+        element_id = mapped_id(element_name, element_aliases, 0)
+        element_lv = max(1, parsed_element_lv)
+
+        size_id = mapped_id(stats.get("size"), size_aliases, 0)
+        race_id = mapped_id(stats.get("race"), race_aliases, 0)
+        class_id = mapped_id(stats.get("type"), class_aliases, 0)
+        combat_atk = range_max(stats.get("attackRange"))
+        combat_matk = range_max(stats.get("magicAttackRange"))
+        res = as_int(stats.get("res"))
+        mres = as_int(stats.get("mRes"))
 
     def_before = int((level + vit) / 2)
     mdef_before = int(int(level / 4) + int(vit / 10) + int(intelligence / 5))
-
-    element_id, element_lv = stage18_decode_monster_element(
-        stats.get("element", 0)
-    )
-
     front_atk = int(level + strength)
-    combat_atk = as_int(attack_data.get("maximum"))
     front_matk = int(level + intelligence)
-    combat_matk = as_int(mattack_data.get("maximum"))
 
     monster_id = 0
     for key in ("id", "monsterId", "monster_id"):
@@ -8228,15 +8332,15 @@ def stage18_parse_monster_payload(data):
         "level": level,
         "element_id": int(element_id),
         "element_lv": int(element_lv),
-        "size_id": as_int(stats.get("scale")),
-        "race_id": as_int(stats.get("race")),
-        "class_id": as_int(stats.get("class")),
+        "size_id": int(size_id),
+        "race_id": int(race_id),
+        "class_id": int(class_id),
         "def_before": int(def_before),
         "mdef_before": int(mdef_before),
         "def_after": int(def_after),
         "mdef_after": int(mdef_after),
-        "res": as_int(stats.get("res")),
-        "mres": as_int(stats.get("mres")),
+        "res": int(res),
+        "mres": int(mres),
         "monster_f_atk": int(front_atk),
         "monster_c_atk": int(combat_atk),
         "monster_f_matk": int(front_matk),
